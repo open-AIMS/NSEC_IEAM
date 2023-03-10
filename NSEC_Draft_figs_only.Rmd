@@ -19,7 +19,7 @@ library(flextable)
 library(officer)
 source('functions.R')
 
-load(file="data_raw/binomial_sim_results.RData")
+load(file="binomial_sim_results.RData")
 load(file = "fitted_binom_examples.RData")
 
 load("caste_study_results.RData")
