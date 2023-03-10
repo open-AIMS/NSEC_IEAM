@@ -1,0 +1,369 @@
+---
+title: "Exploring alternative Bayesian estimates of low- and no-effect concentration thresholds"
+author: "Rebecca Fisher"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+
+require(jagsNEC)
+require(tidyverse)
+library(ggplot2)
+library(ggthemes) 
+library(ggnewscale)
+library(kableExtra)
+library(flextable)
+library(officer)
+source('functions.R')
+
+load(file="data_raw/binomial_sim_results.RData")
+load(file = "fitted_binom_examples.RData")
+
+load("caste_study_results.RData")
+
+x.range <- c(0.1, 10)
+x.vec <- seq(x.range[1], x.range[2], length=50)
+
+true.vals <- do.call("rbind", true.endpoints) %>%
+  mutate(estimate=gsub("C1", "C01", endpoint),
+         estimate=gsub("C5", "C05", endpoint),
+         estimate=gsub("C010", "C10", endpoint))
+
+dat <- all.sim.out %>%
+  mutate(est.NEC=NEC_X50.,
+         est.NSEC=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NSEC01.NEC3param_X50.*NEC3param,
+         est.EC10=ECx10.ECxsigmoidal_X50.*ECxsigmoidal + ECx10.NEC3param_X50.*NEC3param,
+         est.EC05=ECx05.ECxsigmoidal_X50.*ECxsigmoidal + ECx05.NEC3param_X50.*NEC3param,
+         est.EC01=ECx01.ECxsigmoidal_X50.*ECxsigmoidal + ECx01.NEC3param_X50.*NEC3param,
+         est.NEC.up=NEC_X97.5.,
+         est.NSEC.up=NSEC01.ECxsigmoidal_X97.5.*ECxsigmoidal + NSEC01.NEC3param_X97.5.*NEC3param,
+         est.EC10.up=ECx10.ECxsigmoidal_X97.5.*ECxsigmoidal + ECx10.NEC3param_X97.5.*NEC3param,
+         est.EC05.up=ECx05.ECxsigmoidal_X97.5.*ECxsigmoidal + ECx05.NEC3param_X97.5.*NEC3param,
+         est.EC01.up=ECx01.ECxsigmoidal_X97.5.*ECxsigmoidal + ECx01.NEC3param_X97.5.*NEC3param,     
+         est.NEC.lw=NEC_X2.5.,
+         est.NSEC.lw=NSEC01.ECxsigmoidal_X2.5.*ECxsigmoidal + NSEC01.NEC3param_X2.5.*NEC3param,
+         est.EC10.lw=ECx10.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx10.NEC3param_X2.5.*NEC3param,
+         est.EC05.lw=ECx05.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx05.NEC3param_X2.5.*NEC3param,
+         est.EC01.lw=ECx01.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx01.NEC3param_X2.5.*NEC3param) 
+
+coverage <- dat %>% 
+  dplyr::mutate(
+    # ac.NEC=ifelse(NEC>est.NEC.lw & NEC<est.NEC.up, 1, 0),
+    # ac.EC10=ifelse(EC10>est.EC10.lw & EC10<est.EC10.up, 1, 0),
+    # ac.EC05=ifelse(EC5>est.EC05.lw & EC5<est.EC05.up, 1, 0),
+    # ac.EC01=ifelse(EC1>est.EC01.lw & EC1<est.EC01.up, 1, 0),
+    # nsc.NEC=ifelse(NEC>est.NSEC.lw & NEC<est.NSEC.up, 1, 0),
+    # nsc.EC10=ifelse(EC10>est.NSEC.lw, 1, 0)
+    ## actual endpoints
+    fn.NEC=ifelse(NEC<est.NEC.lw, 1, 0),
+    fn.EC10=ifelse(EC10<est.EC10.lw, 1, 0),
+    fn.EC05=ifelse(EC5<est.EC05.lw, 1, 0),
+    fn.EC01=ifelse(EC1<est.EC01.lw, 1, 0),
+    ns_fn.NEC=ifelse(NEC<est.NSEC.lw, 1, 0),
+    ns_fn.EC10=ifelse(EC10<est.NSEC.lw, 1, 0),
+    ns_fn.EC05=ifelse(EC5<est.NSEC.lw, 1, 0),
+    ns_fn.EC01=ifelse(EC1<est.NSEC.lw, 1, 0),
+    fp.NEC=ifelse(NEC>est.NEC.up, 1, 0),
+    fp.EC10=ifelse(EC10>est.EC10.up, 1, 0),
+    fp.EC05=ifelse(EC5>est.EC05.up, 1, 0),
+    fp.EC01=ifelse(EC1>est.EC01.up, 1, 0),
+    ns_fp.NEC=ifelse(NEC>est.NSEC.up, 1, 0),
+    ns_fp.EC10=ifelse(EC10>est.NSEC.up, 1, 0),
+    ns_fp.EC05=ifelse(EC5>est.NSEC.up, 1, 0),
+    ns_fp.EC01=ifelse(EC1>est.NSEC.up, 1, 0),
+    ## NSEC approximation
+    nec_fp.EC10=ifelse(EC10>est.NEC.up, 1, 0),
+    nec_fp.EC05=ifelse(EC5>est.NEC.up, 1, 0),
+    nec_fp.EC01=ifelse(EC1>est.NEC.up, 1, 0),
+    nec_fp.NEC=ifelse(NEC>est.NEC.up, 1, 0),
+    ## NEC approximation
+    nec_fn.EC10=ifelse(EC10<est.NEC.lw, 1, 0),
+    nec_fn.EC05=ifelse(EC5<est.NEC.lw, 1, 0),
+    nec_fn.EC01=ifelse(EC1<est.NEC.lw, 1, 0),
+    nec_fn.NEC=ifelse(NEC<est.NEC.lw, 1, 0),    
+    
+  ) %>% 
+  dplyr::select(key, 
+                fp.NEC, fp.EC10, fp.EC05, fp.EC01, 
+                ns_fp.NEC, ns_fp.EC10, ns_fp.EC05, ns_fp.EC01,
+                fn.NEC, fn.EC10, fn.EC05, fn.EC01, 
+                ns_fn.NEC, ns_fn.EC10, ns_fn.EC05, ns_fn.EC01,
+                nec_fp.NEC, nec_fp.EC10,  nec_fp.EC05,  nec_fp.EC01,
+                nec_fn.NEC, nec_fn.EC10, nec_fn.EC05, nec_fn.EC01, 
+                total.reps) %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::summarise_all(mean, .groups="keep", na.rm=TRUE) %>% 
+  data.frame() %>% 
+  left_join(scenario.dat)
+
+
+```
+
+
+```{r plot-example, fig.height=5, fig.fullwidth=TRUE, fig.cap="\\label{fig:plot_scenarios}A sigmoidal concentration-response experiment showing estimation of NSEC. The solid black line shows the fitted Bayesian model. The horizontal red line is the lower 1 percentile of the lowest concentration treatment (the control). The blue lines show posterior predicted values of the response for each MCMC sample. NSEC for each MCMC sample is estimated as the intersection between the red and blues lines."}
+
+fit.i <- fitted.binom$'12_5_0.9_10_Sigmoidal 1'$mod.fits$ECxsigmoidal
+dat.i <- fit.i$mod.dat
+y.i <- fit.i$pred.vals$y
+post.i <- fit.i$pred.vals$posterior
+x.i <- fit.i$pred.vals$x
+lw.i <- quantile(post.i[1,], probs = 0.01)
+
+plot(jitter(dat.i$x, factor=0.5), dat.i$y/dat.i$trials, pch=16, col=adjustcolor("black", alpha=0.25),
+     xlab="Concentration", ylab="Response probability", bty="L")
+
+abline(h=lw.i, col="red")
+for(l in 1:50){
+  lines(x.i, post.i[,l], col=adjustcolor("blue", alpha=0.1))
+}
+lines(x.i, y.i, lwd=1.25)
+
+```
+
+
+```{r ECxsigmoidal, include=TRUE, echo=TRUE}
+ECxsigmoidal <- function(x, top, beta, d) {
+  y.pred <- top * exp(-beta * (x)^d)
+  
+  return(y.pred)
+}
+```
+
+```{r NEC3param, include=TRUE, echo=TRUE}
+NEC3param <- function(x, NEC, top, beta) {
+  pre.index <- which(x <= NEC)
+  post.index <- which(x > NEC)
+  x.seq.pre <- x[pre.index]
+  x.seq.post <- x[post.index]
+  
+  y.pred <- rep(NA, length(x))
+  
+  y.pred.pre <- top
+  y.pred.post <- top * exp(-beta * (x.seq.post - NEC))
+  
+  y.pred[pre.index] <- y.pred.pre
+  y.pred[post.index] <- y.pred.post
+  
+  return(y.pred)
+}
+```
+
+
+```{r plot-scenarios, fig.height=5, fig.fullwidth=TRUE, fig.cap="\\label{fig:plot_scenarios}Models used for each scenario in the simulation study"}
+scenarios <- names(scenarios.list)
+scenarios.dat <- do.call("rbind", scenarios.list) %>%
+  data.frame() %>%
+  rownames_to_column(var = "scenarios")
+
+par(bty="n")
+plot(x.vec, ECxsigmoidal(x=x.vec, top=0.9, beta=0.01, d=2), ylim = c(0,1), 
+     pch=NA, ylab="Probability", xlab="Concentration")
+
+lines(x.vec, do.call(ECxsigmoidal, c(list(x.vec), as.list(na.omit(scenarios.list$`Sigmoidal 1`)))), col=1)
+lines(x.vec, do.call(ECxsigmoidal, c(list(x.vec), as.list(na.omit(scenarios.list$`Sigmoidal 2`)))), col=2)
+
+lines(x.vec, do.call(NEC3param, c(list(x.vec), as.list(na.omit(scenarios.list$`NEC 1`)))), col=1, lty=2)
+lines(x.vec, do.call(NEC3param, c(list(x.vec), as.list(na.omit(scenarios.list$`NEC 2`)))), col=2, lty=2)
+
+legend("topright", legend=scenarios,
+       lty=c(1,2,1,2,1,2), col=c(1,1,2,2,4,4), bty = "n")
+```
+
+
+```{r plot-weights, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_weights}DIC based model weight for the NEC3param model for each scenario as a function of the sample density (total.reps) and the number of experimental treatment levels (n.treatments)."}
+all.sim.out %>%
+ggplot(aes(total.reps, NEC3param, col=n.treatments)) +
+  geom_point(alpha=0.25) +
+  geom_jitter() +
+  scale_y_continuous(name="Weight of NEC model") +
+  facet_wrap(~scenarios) +
+  scale_colour_colorblind() +
+  xlab("Total number of trials in binomial experiment") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+```
+
+
+```{r plot-NSEC01, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_NSEC01}Estimated model averaged NSEC value based on a 99% certainty value for each scenario as a function of the sample density (total.reps) and the number of experimental treatment levels (n.treatments). Also shown are the true endpoints for each scenario, including EC1, EC10, EC5 and NEC. Note that there is no theoretical NEC for the Sigmoidal scenarios."}
+
+all.sim.out %>%
+  mutate(y=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NSEC01.NEC3param_X50.*NEC3param) %>%
+  select(y, n.treatments, total.reps, scenarios) %>%
+  
+  ggplot(aes(total.reps, y, col=n.treatments)) +
+  geom_point(alpha=0.1,  position = position_jitter(w = 20, h = 0)) +
+  guides(colour = guide_legend(override.aes = list(alpha=1))) +  
+  #scale_y_continuous(name="Estimated NSEC", limits = x.range) +
+  ylab("Estimated NSEC") +
+  scale_x_continuous(name="total number of trials in binomial experiment") +
+  #scale_colour_manual(values = c("darkgrey", "black")) +
+  scale_colour_colorblind() +
+  new_scale_colour() +
+  geom_hline(data = na.omit(true.vals), aes(yintercept = y, colour=estimate)) +  
+  facet_wrap(~scenarios, scales="free") +
+  scale_colour_manual(values = c("orange", "cyan", "blue",  "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1)) +
+    xlab("Total number of trials in binomial experiment")
+
+
+```
+
+
+
+```{r plot-violin-medians, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_violin_medians}Median estimated model averaged endpoints estimates for each scenario for a well replicated (n.treatments=12, total.reps=2400) and poorly replicated experiment (n.treatments=8, total.reps=400). Shown as horizontal lines are the true endpoints for each scenario, including EC1, EC10, EC5 and NEC. Note that there is no theoretical NEC for the Sigmoidal scenarios."}
+
+all.sim.out %>%
+  mutate(NEC=NEC_X50.,
+         NSEC=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NSEC01.NEC3param_X50.*NEC3param,
+         EC10=ECx10.ECxsigmoidal_X50.*ECxsigmoidal + ECx10.NEC3param_X50.*NEC3param,
+         EC05=ECx05.ECxsigmoidal_X50.*ECxsigmoidal + ECx05.NEC3param_X50.*NEC3param,
+         EC01=ECx01.ECxsigmoidal_X50.*ECxsigmoidal + ECx01.NEC3param_X50.*NEC3param,
+         total.reps=factor(total.reps)) %>%
+  filter(total.reps=="2400" | total.reps=="400") %>%
+  select(NEC, NSEC, EC10, EC05, EC01, scenarios, n.treatments, total.reps) %>%
+  mutate(fact=paste(scenarios, total.reps)) %>%
+  pivot_longer(cols = c("NEC", "NSEC", "EC10", "EC05", "EC01"), values_to="y", names_to="endpoint") %>%
+  ggplot(aes(x=endpoint, y=y, fill=total.reps)) +#, col=endpoint)) +
+  #labs(col="Estimated endpoints") + 
+  #geom_violin(position=position_dodge(1)) +
+  geom_split_violin(col="black", alpha=0.7) +
+  scale_fill_colorblind() +
+  new_scale_colour() +
+  geom_hline(data = na.omit(true.vals), aes(yintercept = y, colour=estimate)) +
+  scale_colour_manual(values = c("orange", "cyan","blue",  "red")) +  
+  labs(col="True endpoints") + 
+  ylab("Estimated value") + 
+  facet_wrap(~scenarios, scales="free", nrow = 2) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+```
+
+
+```{r plot-cbands, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_cbands}Estimated 95% confidence band range for model averaged endpoints estimates for each scenario for a well replicated (n.treatments=12, total.reps=2400) and poorly replicated experiment (n.treatments=8, total.reps=400)"}
+
+all.sim.out %>%
+  mutate(NEC.lw=NEC_X2.5.,
+         NSEC.lw=NSEC01.ECxsigmoidal_X2.5.*ECxsigmoidal + NSEC01.NEC3param_X2.5.*NEC3param,
+         EC10.lw=ECx10.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx10.NEC3param_X2.5.*NEC3param,
+         EC5.lw=ECx05.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx05.NEC3param_X2.5.*NEC3param,
+         EC1.lw=ECx01.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx01.NEC3param_X2.5.*NEC3param,
+         NEC.up=NEC_X97.5.,
+         NSEC.up=NSEC01.ECxsigmoidal_X97.5.*ECxsigmoidal + NSEC01.NEC3param_X97.5.*NEC3param,
+         EC10.up=ECx10.ECxsigmoidal_X97.5.*ECxsigmoidal + ECx10.NEC3param_X97.5.*NEC3param,
+         EC5.up=ECx05.ECxsigmoidal_X97.5.*ECxsigmoidal + ECx05.NEC3param_X97.5.*NEC3param,
+         EC1.up=ECx01.ECxsigmoidal_X97.5.*ECxsigmoidal + ECx01.NEC3param_X97.5.*NEC3param,
+         NEC=NEC.up-NEC.lw,
+         NSEC=NSEC.up-NSEC.lw,
+         EC10=EC10.up-EC10.lw,
+         EC05=EC5.up-EC5.lw,
+         EC01=EC1.up-EC1.lw,         
+         total.reps=factor(total.reps)) %>%
+  filter(total.reps=="2400" | total.reps=="400") %>%
+  select(NEC, NSEC, EC10, EC05, EC01, scenarios, n.treatments, total.reps) %>%
+  pivot_longer(cols = c("NEC", "NSEC", "EC10", "EC05", "EC01"), values_to="y", names_to="endpoint") %>%
+  ggplot(aes(endpoint, y, fill=total.reps))+#, col=endpoint)) +
+  geom_split_violin(col="black", alpha=0.7) +
+  scale_fill_colorblind() +
+  #labs(col="Estimated endpoints") + 
+  ylab("Estimated value") + 
+  facet_wrap(~scenarios, scales="free") +
+  scale_colour_manual(values = c("red", "cyan","cyan",  "blue", "black")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+```
+
+
+```{r plot-exceedance, fig.height=7, fig.width=7, fig.cap="\\label{fig:plot_coverage}Exceedance rates from 100 simulations as a function of the total number of simulated replicates (total.reps). Shown are exceedance rates for the actual endpoint estimates, including EC1, EC10, EC5 and NEC; as well as the estimate based on NSEC for those same endpoints. The dashed horizontal line indicates the expected 0.025 probability, assuming errors are equal at each end of the credible interval. Note that there is no theoretical NEC for the Sigmoidal scenarios.", warning=FALSE}
+coverage %>% 
+  pivot_longer(cols=c("fp.NEC", "fp.EC10", "fp.EC05", "fp.EC01", 
+                      "ns_fp.NEC", "ns_fp.EC10",  "ns_fp.EC05", "ns_fp.EC01",
+                      "fn.NEC", "fn.EC10", "fn.EC05", "fn.EC01", 
+                      "ns_fn.NEC", "ns_fn.EC10",  "ns_fn.EC05",  "ns_fn.EC01",
+                      "nec_fn.NEC", "nec_fn.EC10",  "nec_fn.EC05",  "nec_fn.EC01",
+                      "nec_fp.NEC",, "nec_fp.EC10",  "nec_fp.EC05",  "nec_fp.EC01"),
+               names_to = "endpoint", values_to = "coverage") %>% 
+  dplyr::mutate(type=ifelse(grepl("ns_", endpoint), 
+                            "NSEC", ifelse(grepl("nec_", endpoint), "NEC", "Actual")),
+                error=ifelse(grepl("fp.", endpoint), 
+                            "(FP/1)", "(FN/2)")) %>%
+  unite(col = "type", type, error, sep = " ") %>% 
+  dplyr::mutate(endpoint=gsub("nec_", "", gsub("ns_", "", gsub("fn.", "", 
+                              gsub("fp.", "", endpoint))))) %>% 
+  ggplot(aes(x=total.reps, y=coverage, colour=endpoint)) +
+  geom_point(position = position_jitter()) +
+  geom_abline(slope=0, intercept=0.025, lty=2) +
+  ylab("Exceedance rate") +
+  xlab("Total number of trials in binomial experiment") +
+  facet_grid(rows=vars(scenarios), cols=vars(type), scales = "fixed") +
+  scale_colour_manual(values = c("orange", "cyan", "blue", "red")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+```
+
+
+
+```{r plot-CRs, fig.height=7, fig.width=7, fig.cap="\\label{fig:plot_CRs}Concentration response relationships.", warning=FALSE}
+
+par(mfrow=c(2,2), mar=c(2,2,1,1), oma=c(5,2,1,2))
+
+# AA
+plot(out.aa.all, add.NEC = FALSE, 
+     ylim = c(0,1), ylab = "",  xlab = "", lxform = xform1,
+     xticks = log(c(0, 10, 30, 100, 300, 1000, 3000, 10000)+10), xtick.rounding = 0)
+mtext(side=3, text="A. amphitrite", font = 3, adj=0)
+abline(v=quantile(endpoints$aa$EC10, probs = c(0.5, 0.025, 0.975)), col="blue", lty=c(1,3,3))
+abline(v=quantile(endpoints$aa$NSEC, probs = c(0.5, 0.025, 0.975)), col="black", lty=c(1,3,3))
+lines(out.nec.AA$pred.vals$x, out.nec.AA$pred.vals$y, col="darkgrey")
+lines(out.nec.AA$pred.vals$x, out.nec.AA$pred.vals$up, col="darkgrey", lty=3)
+lines(out.nec.AA$pred.vals$x, out.nec.AA$pred.vals$lw, col="darkgrey", lty=3)
+abline(v=quantile(endpoints$aa$NEC,  probs = c(0.5, 0.025, 0.975)), col="red", lty=c(1,3,3))
+
+legend("bottomleft", legend=c("EC10", "NEC", "NSEC"),
+       col=c("blue", "red", "black"), lty=1, bty = "n")
+
+# Coral
+plot(Coral.out4.all, add.NEC = FALSE, 
+     ylim = c(0,1), ylab = "",  xlab = "", lxform = xform1,
+     xticks = log(c(0, 10, 30, 100, 300, 1000, 3000, 10000)+10), xtick.rounding = 0)
+mtext(side=3, text="A. millepora", font = 3, adj=0)
+abline(v=quantile(endpoints$Coral$EC10, probs = c(0.5, 0.025, 0.975)), col="blue", lty=c(1,3,3))
+abline(v=quantile(endpoints$Coral$NSEC, probs = c(0.5, 0.025, 0.975)), col="black", lty=c(1,3,3))
+lines(Coral.out4.NEC$pred.vals$x, Coral.out4.NEC$pred.vals$y, col="darkgrey")
+lines(Coral.out4.NEC$pred.vals$x, Coral.out4.NEC$pred.vals$up, col="darkgrey", lty=3)
+lines(Coral.out4.NEC$pred.vals$x, Coral.out4.NEC$pred.vals$lw, col="darkgrey", lty=3)
+abline(v=quantile(endpoints$Coral$NEC,  probs = c(0.5, 0.025, 0.975)), col="red", lty=c(1,3,3))
+# ND
+plot(out.nd.all, add.NEC = FALSE, 
+     ylim = c(0,1), ylab = "",  xlab = "", lxform = xform1,
+     xticks = log(c(0, 10, 30, 100, 300, 1000, 3000, 10000)), xtick.rounding = 0)
+mtext(side=3, text="N. dorsatus", font = 3, adj=0)
+abline(v=quantile(endpoints$nd$EC10, probs = c(0.5, 0.025, 0.975)), col="blue", lty=c(1,3,3))
+abline(v=quantile(endpoints$nd$NSEC, probs = c(0.5, 0.025, 0.975)), col="black", lty=c(1,3,3))
+lines(out.nd.nec$pred.vals$x, out.nd.nec$pred.vals$y, col="darkgrey")
+lines(out.nd.nec$pred.vals$x, out.nd.nec$pred.vals$up, col="darkgrey", lty=3)
+lines(out.nd.nec$pred.vals$x, out.nd.nec$pred.vals$lw, col="darkgrey", lty=3)
+abline(v=quantile(endpoints$nd$NEC,  probs = c(0.5, 0.025, 0.975)), col="red", lty=c(1,3,3))
+
+# Urchins
+plot(Urchin.out2, add.NEC = FALSE, 
+     ylim = c(0,1), ylab = "",  xlab = "", lxform = xform1,
+     xticks = log(c(0, 10, 30, 100, 300, 1000, 3000, 10000)+10), xtick.rounding = 0)
+mtext(side=3, text="S. variolaris", font = 3, adj=0, xpd=NA)
+abline(v=quantile(endpoints$Urchin$EC10, probs = c(0.5, 0.025, 0.975)), col="blue", lty=c(1,3,3))
+abline(v=quantile(endpoints$Urchin$NSEC, probs = c(0.5, 0.025, 0.975)), col="black", lty=c(1,3,3))
+abline(v=quantile(endpoints$Urchin$NEC,  probs = c(0.5, 0.025, 0.975)), col="red", lty=c(1,3,3))
+lines(Urchin.out2.NEC$pred.vals$x, Urchin.out2.NEC$pred.vals$y, col="darkgrey")
+lines(Urchin.out2.NEC$pred.vals$x, Urchin.out2.NEC$pred.vals$up, col="darkgrey", lty=3)
+lines(Urchin.out2.NEC$pred.vals$x, Urchin.out2.NEC$pred.vals$lw, col="darkgrey", lty=3)
+
+
+mtext(side=1, text=expression("Concentration"~ (mu*g~{L^-1}~TAH)), outer=TRUE, line=1)
+mtext(side=2, text="Normalised response", outer=TRUE, line=1)
+```
+
