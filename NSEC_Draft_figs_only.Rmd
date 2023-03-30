@@ -366,4 +366,78 @@ lines(Urchin.out2.NEC$pred.vals$x, Urchin.out2.NEC$pred.vals$lw, col="darkgrey",
 mtext(side=1, text=expression("Concentration"~ (mu*g~{L^-1}~TAH)), outer=TRUE, line=1)
 mtext(side=2, text="Normalised response", outer=TRUE, line=1)
 ```
+```{r extractplotdat}
+
+cs_predat <- bind_rows(
+  data.frame(out.nec.AA$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="A. amphitrite", fit="NEC"),
+  data.frame(out.aa.all$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="A. amphitrite", fit="all"),
+  data.frame(Coral.out4.NEC$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="A. millepora", fit="NEC"),
+  data.frame(Coral.out4.all$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="A. millepora", fit="all"),
+  data.frame(out.nd.nec$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="N. dorsatus", fit="NEC"),
+  data.frame(out.nd.all$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="N. dorsatus", fit="all"),
+  data.frame(Urchin.out2.NEC$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="S. variolaris", fit="NEC"),
+  data.frame(Urchin.out2$pred.vals[c("x", "y", "up", "lw")], 
+                           sp="S. variolaris", fit="all")
+)
+
+cs_dat <- bind_rows(
+  data.frame(out.aa.all$mod.dat, sp = "A. amphitrite"),
+  data.frame(Coral.out4.all$mod.dat, sp = "A. millepora"),
+  data.frame(out.nd.all$mod.dat, sp = "N. dorsatus"),
+  data.frame(Urchin.out2$mod.dat, sp = "S. variolaris")
+)
+
+cs_endpoints <- 
+bind_rows(
+  bind_rows(
+  c(quantile(endpoints$aa$EC10, probs = c(0.5, 0.025, 0.975)), endpoint = "EC10"),
+  c(quantile(endpoints$aa$NEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NEC"),
+  c(quantile(endpoints$aa$NSEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NSEC")  
+  ) |> mutate(sp = "A. amphitrite"),
+
+  bind_rows(
+  c(quantile(endpoints$Coral$EC10, probs = c(0.5, 0.025, 0.975)), endpoint = "EC10"),
+  c(quantile(endpoints$Coral$NEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NEC"),
+  c(quantile(endpoints$Coral$NSEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NSEC")  
+  ) |> mutate(sp = "A. millepora"),
+  
+  bind_rows(
+  c(quantile(endpoints$nd$EC10, probs = c(0.5, 0.025, 0.975)), endpoint = "EC10"),
+  c(quantile(endpoints$nd$NEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NEC"),
+  c(quantile(endpoints$nd$NSEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NSEC")  
+  ) |> mutate(sp = "N. dorsatus"),
+  
+  bind_rows(
+  c(quantile(endpoints$Urchin$EC10, probs = c(0.5, 0.025, 0.975)), endpoint = "EC10"),
+  c(quantile(endpoints$Urchin$NEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NEC"),
+  c(quantile(endpoints$Urchin$NSEC, probs = c(0.5, 0.025, 0.975)), endpoint = "NSEC")  
+  ) |> mutate(sp = "S. variolaris")  
+)
+
+save(cs_predat, cs_dat, cs_endpoints, file = "Case_study_condensate_for_plotting.RData")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
