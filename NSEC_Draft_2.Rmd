@@ -229,7 +229,7 @@ ggplot(aes(x.label, NEC3param, fill=n.treatments)) +
      ggh4x::facet_nested_wrap(~scenarios_f + n.treatments, nrow = 1,scales = "free_x")
    #facet_grid(~scenarios_f+n.treatments, scales="free",space = "free")
 
-ggsave("ignore/figure 2.png", height=120, width=200, units="mm")
+ggsave("figure 2.png", height=120, width=200, units="mm")
 
 ```
 
@@ -302,7 +302,7 @@ ggplot(aes(label, y)) +
        fill="Treatments",
        colour="Estimate"))
  
- ggsave("ignore/figure 3.png", height=160, width=240, units="mm")
+ ggsave("figure 3.png", height=160, width=240, units="mm")
 ```
 ##Figure 4 
 
@@ -416,7 +416,7 @@ endpoints<- all_endpoint_dat %>%
 
 
 
-ggsave("ignore/figure 4.png", height=180,width=200, units="mm")
+ggsave("figure 4.png", height=180,width=200, units="mm")
 
 ```
 
@@ -494,7 +494,7 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
        fill="Model group",colour="Model group"))
 
 
-ggsave("ignore/figure 5.png", height=180, width=200,units="mm" )
+ggsave("figure 5.png", height=180, width=200,units="mm" )
 
 ```
 
