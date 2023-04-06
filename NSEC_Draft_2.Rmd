@@ -286,7 +286,7 @@ ggplot(aes(label, y)) +
 
   scale_fill_manual(values=c("#B3AE36","#2D6480"))+
   facet_grid(Value~scenarios_f) +
-  scale_colour_manual(values = c("#41b6c4", "#df65b0", "#e7298a", "#91003f")) +
+  scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +
   
 
   theme_minimal() +
@@ -332,7 +332,7 @@ cu_lab1<- cs_cu_weights %>% arrange(desc(wi)) %>% rename("Model"=1)%>% #arrange 
 
 #cu data
 
-cu_dat <- read.csv("C. armigera combined.csv") %>% 
+cu_dat <- read.csv("ignore/C. armigera combined.csv") %>% 
   dplyr::filter(Metal == "Cu") %>% 
   dplyr::mutate(log.x = log(Conc + 1), 
                 x=if_else(Conc<0.1, 0.1, Conc)) %>% 
@@ -377,7 +377,7 @@ endpoints<- all_endpoint_dat %>%
   fig_4_labels<- data.frame(
     x=0.05, 
     y=120, 
-    Model=levels(fit_dat$Model), 
+    Model=unique(fit_dat$Model), 
     label=c("(A)", "(B)", "(C)", "(D)")) %>% 
     filter(Model%in%fit_dat$Model)
   
@@ -551,7 +551,7 @@ geom_abline(aes(intercept = 0, slope = 1, linetype = "dashed"), show.legend = FA
 labs(x="Estimated NEC", y="Estimated NSEC")+
 
 
-scale_colour_manual(values = c("#41b6c4", "#df65b0", "#e7298a", "#91003f" ), name="Estimate") +
+scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f"), name="Estimate") +
 guides(colour = guide_legend(order = 1))+
 facet_wrap(~scenarios, scales="free") +
   guides(fill = guide_legend(override.aes = list(alpha=1))) +  
@@ -583,7 +583,7 @@ all.sim.out %>%
   scale_fill_colorblind() +
   new_scale_colour() +
   geom_hline(data = na.omit(true.vals.2), aes(yintercept = y, colour=endpoint)) +
-  scale_colour_manual(values = c("#41b6c4", "#df65b0", "#e7298a", "#91003f" )) +  
+  scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +  
   labs(col="True endpoints") + 
   ylab("Estimated value") + 
   facet_wrap(~scenarios, scales="free", nrow = 1) +
@@ -619,7 +619,6 @@ all.sim.out %>%
   labs(y="Estimated value", fill="Treatments") + 
   coord_cartesian(ylim=c(0,2))+
   facet_wrap(~scenarios, nrow=2) +
-  scale_colour_manual(values = c("#41b6c4", "#df65b0", "#e7298a", "#91003f")) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust=1))
 
