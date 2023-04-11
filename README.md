@@ -1,1 +1,2 @@
-# NSEC
+# NSEC_IEAM
+This repository contains code to replicate the materials in Fisher et al, Methods for estimating no effect toxicity concentrations in ecotoxicology that has been submitted for publication in the Journal Integrated Environmental Assessment and Management.
