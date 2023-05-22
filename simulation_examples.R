@@ -7,7 +7,7 @@ library(ggnewscale)
 require(kableExtra)
 source('functions.R')
 
-load(file="data_raw/binomial_sim_results.RData")
+load(file="binomial_sim_results.RData")
 
 x.range <- c(0.1, 10)
 x.vec <- seq(x.range[1], x.range[2], length=50)
