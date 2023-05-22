@@ -39,7 +39,7 @@ ECxsigmoidal.binom <- function(scen.dat){
            top=scen.dat["top"],
            beta=scen.dat["beta"],
            d=scen.dat["d"]) %>%
-    pivot_longer(all_of(cols.vec), "rep.number", values_to = "suc") %>%
+    pivot_longer(all_of(cols.vec), names_to = "rep.number", values_to = "suc") %>%
     data.frame()
   
   return(out)
@@ -61,7 +61,7 @@ NEC3param.binom <- function(scen.dat){
            top=scen.dat["top"],
            beta=scen.dat["beta"],
            NEC=scen.dat["NEC"]) %>%
-    pivot_longer(all_of(cols.vec), "rep.number", values_to = "suc") %>%
+    pivot_longer(all_of(cols.vec), names_to = "rep.number", values_to = "suc") %>%
     data.frame()
   
   return(out)
