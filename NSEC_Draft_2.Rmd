@@ -28,6 +28,7 @@ load(file = "fitted_binom_examples.RData")
 
 load("caste_study_results.RData")
 
+
 x.range <- c(0.1, 10)
 x.vec <- seq(x.range[1], x.range[2], length=50)
 
@@ -36,9 +37,16 @@ true.vals <- do.call("rbind", true.endpoints) %>%
          estimate=gsub("C5", "C05", endpoint),
          estimate=gsub("C010", "C10", endpoint))
 
+true.vals.2<-true.vals %>% mutate(scenarios_f = as_factor(scenarios), 
+          scenarios_f = fct_relevel(scenarios_f,"NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"), 
+          endpoint=fct_relevel(endpoint, "NEC", "EC1", "EC5", "EC10")) %>% 
+    mutate(y_2 = if_else(str_detect(scenarios, "NEC")&endpoint %in% c("EC1", "EC5", "EC10"),  NA, y))
+
+
 dat <- all.sim.out %>%
   mutate(est.NEC=NEC_X50.,
-         est.NSEC=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NSEC01.NEC3param_X50.*NEC3param,
+         #est.NSEC=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NSEC01.NEC3param_X50.*NEC3param,
+         est.NSEC=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NEC_X50.*NEC3param,         
          est.EC10=ECx10.ECxsigmoidal_X50.*ECxsigmoidal + ECx10.NEC3param_X50.*NEC3param,
          est.EC05=ECx05.ECxsigmoidal_X50.*ECxsigmoidal + ECx05.NEC3param_X50.*NEC3param,
          est.EC01=ECx01.ECxsigmoidal_X50.*ECxsigmoidal + ECx01.NEC3param_X50.*NEC3param,
@@ -51,18 +59,49 @@ dat <- all.sim.out %>%
          est.NSEC.lw=NSEC01.ECxsigmoidal_X2.5.*ECxsigmoidal + NSEC01.NEC3param_X2.5.*NEC3param,
          est.EC10.lw=ECx10.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx10.NEC3param_X2.5.*NEC3param,
          est.EC05.lw=ECx05.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx05.NEC3param_X2.5.*NEC3param,
-         est.EC01.lw=ECx01.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx01.NEC3param_X2.5.*NEC3param) 
-
-labs_meta<- data.frame(total.reps=c(400,  600, 1200 , 800, 1600, 2400), 
-           label = c("5 reps (10 trials)","5 reps (10 trials)","5 reps (20 trials)",
-                     "5 reps (20 trials)", "10 reps (20 trials)","10 reps (20 trials)"))
-
-all.sim.out.dat <- full_join(all.sim.out, labs_meta) %>% 
+         est.EC01.lw=ECx01.ECxsigmoidal_X2.5.*ECxsigmoidal + ECx01.NEC3param_X2.5.*NEC3param,
+         label=paste(n, " reps (", trials, " trials)", sep=""))  %>% 
   mutate(label=as.factor(label), 
-         label=fct_relevel(label, "5 reps (10 trials)","5 reps (20 trials)","10 reps (20 trials)"),
          scenarios_f = as_factor(scenarios), 
-         scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2" , "Sigmoidal 1", "Sigmoidal 2"))
-  
+         label = fct_relevel(label, 
+             "5 reps (10 trials)", "5 reps (20 trials)", "10 reps (10 trials)", "10 reps (20 trials)"))
+
+nsec_ecx_vals <- ((0.9-sapply(1:nrow(dat),  FUN = function(i){  
+  param_vec <- dat[i, c("top", "beta", "NEC", "d")]
+  x_val <- dat[i, "est.NSEC"]
+  unlist(estECX_vals(x=x_val, params = param_vec))  
+})) / 0.9) *100
+
+ec1_ecx_vals <- ((0.9-sapply(1:nrow(dat),  FUN = function(i){  
+  param_vec <- dat[i, c("top", "beta", "NEC", "d")]
+  x_val <- dat[i, "est.EC01"]
+  unlist(estECX_vals(x=x_val, params = param_vec))  
+})) / 0.9) *100
+
+ec5_ecx_vals <- ((0.9-sapply(1:nrow(dat),  FUN = function(i){  
+  param_vec <- dat[i, c("top", "beta", "NEC", "d")]
+  x_val <- dat[i, "est.EC05"]
+  unlist(estECX_vals(x=x_val, params = param_vec))  
+})) / 0.9) *100
+
+ec10_ecx_vals <- ((0.9-sapply(1:nrow(dat),  FUN = function(i){  
+  param_vec <- dat[i, c("top", "beta", "NEC", "d")]
+  x_val <- dat[i, "est.EC10"]
+  unlist(estECX_vals(x=x_val, params = param_vec))  
+})) / 0.9) *100
+
+nec_ecx_vals <- ((0.9-sapply(1:nrow(dat),  FUN = function(i){  
+  param_vec <- dat[i, c("top", "beta", "NEC", "d")]
+  x_val <- dat[i, "est.NEC"]
+  unlist(estECX_vals(x=x_val, params = param_vec))  
+})) / 0.9) *100
+
+dat$nsec_ecx_vals <- nsec_ecx_vals
+dat$ec1_ecx_vals <- ec1_ecx_vals
+dat$ec5_ecx_vals <- ec5_ecx_vals
+dat$ec10_ecx_vals <- ec10_ecx_vals
+dat$nec_ecx_vals <- nec_ecx_vals
+
 coverage <- dat %>% 
   dplyr::mutate(
     # ac.NEC=ifelse(NEC>est.NEC.lw & NEC<est.NEC.up, 1, 0),
@@ -113,11 +152,17 @@ coverage <- dat %>%
   data.frame() %>% 
   left_join(scenario.dat)
 
+# boxplot summary
+quantiles_95 <- function(x) {
+  r <- quantile(x, probs=c(0.025, 0.2, 0.5, 0.8, 0.975))
+  names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
+  r
+}
 
 ```
 
 
-## Figure 1 
+## Figure - example simulated data 
 
 Figure showing the models used to create the data for the simulation study. 
 
@@ -177,9 +222,23 @@ scenarios.dat <- do.call("rbind", scenarios.list) %>%
   data.frame() %>%
   rownames_to_column(var = "scenarios")
 
+x.range <- c(0.1, 10)
+x.vec8 <- seq(x.range[1], x.range[2], length=8)
+x.vec12 <- seq(x.range[1], x.range[2], length=12)
+
+png("figure curves.png", height=120, width=200, units="mm", bg = "white", res = 2000)
 par(bty="n")
 plot(x.vec, ECxsigmoidal(x=x.vec, top=0.9, beta=0.01, d=2), ylim = c(0,1), 
-     pch=NA, ylab="Probability", xlab="Concentration")
+     pch=NA, ylab="Response (y)", xlab="Concentration (x)")
+arrows(x0=scenarios.dat$NEC[2], y0=0.2, x1=scenarios.dat$NEC[2], y1=0,
+       col = 1, lwd=3, length = 0.1)
+arrows(x0=scenarios.dat$NEC[4], y0=0.2, x1=scenarios.dat$NEC[4], y1=0,
+       col = 2, lwd=3, length = 0.1)
+abline(h=0.9*0.9, col = "blue", lwd=1, lty=2)
+text(x = na.omit(scenarios.dat$NEC), y = 0.2, labels = c("NEC 1", "NEC 2"), col=1:2, pos=3)
+text(x = 1, y = 0.9*0.9, labels = "10% effect", col="blue", pos=1)
+axis(side = 1, labels = NA, at = x.vec12, col.ticks = "#2D6480", lwd.ticks=3)
+axis(side = 1, labels = NA, at = x.vec8, col.ticks = "#B3AE36", lwd.ticks=3)
 
 lines(x.vec, do.call(ECxsigmoidal, c(list(x.vec), as.list(na.omit(scenarios.list$`Sigmoidal 1`)))), col=1)
 lines(x.vec, do.call(ECxsigmoidal, c(list(x.vec), as.list(na.omit(scenarios.list$`Sigmoidal 2`)))), col=2)
@@ -187,32 +246,71 @@ lines(x.vec, do.call(ECxsigmoidal, c(list(x.vec), as.list(na.omit(scenarios.list
 lines(x.vec, do.call(NEC3param, c(list(x.vec), as.list(na.omit(scenarios.list$`NEC 1`)))), col=1, lty=2)
 lines(x.vec, do.call(NEC3param, c(list(x.vec), as.list(na.omit(scenarios.list$`NEC 2`)))), col=2, lty=2)
 
-legend("topright", legend=scenarios,
+legend("right", legend=scenarios,
        lty=c(1,2,1,2,1,2), col=c(1,1,2,2,4,4), bty = "n")
+legend("top", legend=c("8 treatments", "12 treatments"), col = c("#B3AE36", "#2D6480"), 
+       lty=1, bty="n", lwd=3, ncol = 2)
+dev.off()
+```
+## Figure - simulated data examples
+
+```{r sims}
+sim_dat_ret <- do.call("rbind", strsplit(names(sim.dat.binom), split = "_")) |> 
+  data.frame() |> 
+  mutate(key = names(sim.dat.binom),
+         n.treatments = X1,
+         n.replicates = X2,
+         n.trials = X4,
+         scenario = X5) |> 
+  dplyr::select(key, n.treatments, n.replicates, n.trials, scenario)
+
+all_sim_examples_dat<- lapply(sim_dat_ret$key, FUN = function(x){
+  data.frame(fitted.binom[[x]]$mod.fits$ECxsigmoidal$mod.dat)
+})
+names(all_sim_examples_dat) <- sim_dat_ret$key
+
+all_sim_examples_dat <- all_sim_examples_dat |> bind_rows(.id = "key") |> 
+  left_join(sim_dat_ret) |> 
+  mutate(Model = ifelse(grepl("NEC", scenario), "NEC", "Sigmoidal"))
+
+
+all_sim_examples_dat |> 
+  ggplot(aes(x=x, y=y/trials, col = scenario)) + 
+  geom_jitter(alpha=0.3) +
+  facet_grid(n.replicates + n.trials ~ n.treatments + Model) +
+  ylab("Survival") +
+  xlab("Concentration") +  theme_minimal()+
+  theme(strip.text=element_text(face="bold")) 
+
+ggsave("figure simdat.png", height=180, width=200,units="mm", bg = "white")
+
+# fit.i <- fitted.binom$'12_5_0.9_10_Sigmoidal 1'$mod.fits$ECxsigmoidal
+# dat.i <- fit.i$mod.dat
+# y.i <- fit.i$pred.vals$y
+# post.i <- fit.i$pred.vals$posterior
+# x.i <- fit.i$pred.vals$x
+# lw.i <- quantile(post.i[1,], probs = 0.01)
+# 
+# plot(jitter(dat.i$x, factor=0.5), dat.i$y/dat.i$trials, pch=16, col=adjustcolor("black", alpha=0.25),
+#      xlab="Concentration", ylab="Response probability", bty="L")
+# 
+# abline(h=lw.i, col="red")
+# for(l in 1:50){
+#   lines(x.i, post.i[,l], col=adjustcolor("blue", alpha=0.1))
+# }
+# lines(x.i, y.i, lwd=1.25)
+
+
+
 ```
 
-## Figure 2
+## Figure weights
 
-
-```{r Figure 2_plot weights, fig.cap="\\label{fig:plot_weights}DIC based model weight for the NEC3param model for each scenario as a function of the sample density (total.reps) and the number of experimental treatment levels (n.treatments)."}
+```{r Figure weights, fig.cap="\\label{fig:plot_weights}DIC based model weight for the NEC3param model for each scenario as a function of the sample density (total.reps) and the number of experimental treatment levels (n.treatments)."}
 #treat models as individuals keep them in their facets 
 
-all.sim.out.dat  %>% 
- mutate(x.label = paste("<span style = 'color: ",
-                         ifelse(all.sim.out.dat$n.treatments == 8, "#B3AE36", "#2D6480"),
-                         ";'>",
-                         label,
-                         "</span>", sep = ""),
-        x.label=as.factor(x.label),
-        x.label=fct_relevel(x.label, 
-                            "<span style = 'color: #B3AE36;'>5 reps (10 trials)</span>",
-                            "<span style = 'color: #2D6480;'>5 reps (10 trials)</span>",
-                            "<span style = 'color: #2D6480;'>5 reps (20 trials)</span>",
-                            "<span style = 'color: #B3AE36;'>5 reps (20 trials)</span>",
-                             "<span style = 'color: #B3AE36;'>10 reps (20 trials)</span>",
-                            "<span style = 'color: #2D6480;'>10 reps (20 trials)</span>")) %>% 
-ggplot(aes(x.label, NEC3param, fill=n.treatments)) +
-
+dat %>% 
+ggplot(aes(label, NEC3param, fill=n.treatments)) +
   geom_boxplot(aes(), position=position_dodge2(),outlier.shape=NA)+
   geom_point(alpha=0.25, pch=21,position = position_jitterdodge(), colour="black") +
   geom_hline(aes(yintercept=0.5))+
@@ -225,70 +323,44 @@ ggplot(aes(x.label, NEC3param, fill=n.treatments)) +
 
   theme(axis.text.x = element_markdown(angle = 45, hjust=1, face="bold"),
         plot.tag.position=c(0.03, 0.925), 
-        plot.tag=element_text(size=8))+
-     ggh4x::facet_nested_wrap(~scenarios_f + n.treatments, nrow = 1,scales = "free_x")
+        plot.tag=element_text(size=8)) +
+       facet_wrap(~scenarios, nrow = 1, scales = "free_x")
    #facet_grid(~scenarios_f+n.treatments, scales="free",space = "free")
 
-ggsave("figure 2.png", height=120, width=200, units="mm", bg = "white")
+ggsave("figure weights.png", height=120, width=200, units="mm", bg = "white")
 
 ```
 
-##Figure 3
+##Figure NSEC
 
-```{r figure 3,  warning=FALSE}
-
-
-fig.3.dat<- all.sim.out.dat %>%
-  mutate(NSEC=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NSEC01.NEC3param_X50.*NEC3param,
+```{r figure nsec,  warning=FALSE}
+fig.nsec.dat<- dat %>%
+  mutate(NSEC=est.NSEC,
         NEC=NEC_X50.) %>%
   pivot_longer(cols=c("NSEC","NEC"), values_to = "y", names_to = "Value") %>% 
   select(y, n.treatments, total.reps, scenarios, Value, label)  %>% 
   mutate(Value=as_factor(Value),
          Value=fct_relevel(Value, "NSEC", "NEC"),
                  scenarios_f = as_factor(scenarios), 
-        scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2")) %>% 
-  #coloured x labels
-   mutate(x.label = paste("<span style = 'color: ",
-                         ifelse(all.sim.out.dat$n.treatments == 8, "#B3AE36", "#2D6480"),
-                         ";'>",
-                         label,
-                         "</span>", sep = ""),
-        x.label=as.factor(x.label),
-        x.label=fct_relevel(x.label, 
-                            "<span style = 'color: #B3AE36;'>5 reps (10 trials)</span>",
-                            "<span style = 'color: #2D6480;'>5 reps (10 trials)</span>",
-                            "<span style = 'color: #2D6480;'>5 reps (20 trials)</span>",
-                            "<span style = 'color: #B3AE36;'>5 reps (20 trials)</span>",
-                             "<span style = 'color: #B3AE36;'>10 reps (20 trials)</span>",
-                            "<span style = 'color: #2D6480;'>10 reps (20 trials)</span>"))
-
-true.vals.2<-true.vals %>% mutate(scenarios_f = as_factor(scenarios), 
-          scenarios_f = fct_relevel(scenarios_f,"NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"), 
-          endpoint=fct_relevel(endpoint, "NEC", "EC1", "EC5", "EC10")) %>% 
-    mutate(y_2 = if_else(str_detect(scenarios, "NEC")&endpoint %in% c("EC1", "EC5", "EC10"),  NA, y))
-
-          
-  fig_3_labels<- data.frame(
+        scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"))
+  
+fig_nsec_labels<- data.frame(
     x=1, 
     y=8.5, 
     label=c("(A)", "(B)", "(C)", "(D)", "(E)", "(F)", "(G)", "(H)"),
-    scenarios_f=levels(fig.3.dat$scenarios_f),
+    scenarios_f=levels(fig.nsec.dat$scenarios_f),
     Value=c(rep("NSEC", 4), rep("NEC", 4))) %>% 
     mutate(Value=factor(Value, levels=c("NSEC", "NEC")))
   
 
-(fig_3<-  fig.3.dat %>% 
+(fig_nsec<-  fig.nsec.dat %>% 
 ggplot(aes(label, y)) +
- #    geom_point(pch=21, alpha=0.2,  position = position_jitterdodge())+ 
   geom_boxplot(aes(fill=n.treatments), outlier.shape=NA, alpha=1, colour="black")+
   geom_hline(data = na.omit(true.vals.2), aes(yintercept = y, colour=endpoint), lwd=0.7) +  
-  geom_text(data=fig_3_labels, aes(x=x,y=y, label=label), fontface="bold")+
-
+  #geom_text(data=fig_nsec_labels, aes(x=x,y=y, label=label), fontface="bold")+
   scale_fill_manual(values=c("#B3AE36","#2D6480"))+
   facet_grid(Value~scenarios_f) +
   scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +
-  
-
   theme_minimal() +
   scale_y_continuous(limits=c(NA, 8.5))+
   scale_x_discrete()+
@@ -302,9 +374,95 @@ ggplot(aes(label, y)) +
        fill="Treatments",
        colour="Estimate"))
  
- ggsave("figure 3.png", height=160, width=240, units="mm", bg = "white")
+ ggsave("figure nsec.png", height=160, width=240, units="mm", bg = "white")
+ 
+ 
+ 
+ 
+ 
+ 
 ```
-##Figure 4 
+## Figure all_estimates
+
+```{r plot-violin-medians, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_violin_medians}Median estimated model averaged endpoints estimates for each scenario for a well replicated (n.treatments=12, total.reps=2400) and poorly replicated experiment (n.treatments=8, total.reps=400). Shown as horizontal lines are the true endpoints for each scenario, including EC1, EC10, EC5 and NEC. Note that there is no theoretical NEC for the Sigmoidal scenarios."}
+#Plot estimate distribution 
+
+dat %>%
+  mutate(NEC=est.NEC,
+         `N(S)EC`=est.NSEC,
+         EC10=est.EC10,
+         EC05=est.EC05,
+         EC01=est.EC01,
+         total.reps=factor(total.reps)) %>%
+  filter(total.reps=="2400" | total.reps=="400") %>%
+  mutate(scenarios_f = as_factor(scenarios), 
+        scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2")) %>% 
+  select(NEC, `N(S)EC`, EC10, EC05, EC01, scenarios_f, n.treatments, label) %>%
+  #mutate(fact=paste(scenarios_f, total.reps)) %>%
+  pivot_longer(cols = c("NEC", "N(S)EC", "EC10", "EC05", "EC01"), values_to="y", names_to="endpoint") %>%
+  ggplot(aes(x=endpoint, y=y)) +#, col=endpoint)) +
+  geom_boxplot(aes(fill=label), outlier.shape=NA, alpha=1, colour="black")+
+  scale_fill_manual(values=c("#B3AE36","#2D6480"))+
+  #geom_text(data=fig_estimates_labels, aes(x=x,y=y, label=label), fontface="bold")+
+  geom_hline(data = na.omit(true.vals.2), aes(yintercept = y, colour=endpoint)) +
+  scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +  
+  labs(col="True endpoints") + 
+  ylab("Estimated value") + 
+  facet_wrap(~scenarios_f) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust=0.5))
+
+#not used
+```
+
+##Figure all_effects all models
+
+```{r alleffects,  warning=FALSE}
+
+fig.dat_all<- dat %>%
+  select(n, n.treatments, total.reps, scenarios, trials, label,
+         nsec_ecx_vals, ec1_ecx_vals, ec5_ecx_vals, ec10_ecx_vals, nec_ecx_vals)  %>%
+  filter(total.reps=="2400" | total.reps=="400") %>%  
+  pivot_longer(cols=contains("ecx_vals"), names_to = "endpoint", values_to = "y") |> 
+  mutate(endpoint=toupper(gsub("_ecx_vals","", endpoint))) %>%
+  select(y, endpoint, n.treatments, total.reps, scenarios, label)  %>% 
+  mutate(scenarios_f = as_factor(scenarios), 
+         scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"),
+         endpoint = fct_relevel(endpoint, "EC1", "EC5", "EC10", "NSEC"))
+
+fig.dat_all %>% 
+ggplot(aes(x=endpoint, y, fill=label)) +
+  #stat_summary(fun.data = quantiles_95, geom="boxplot", 
+  #             aes(group=interaction(label, n.treatments)),
+  #             position=position_dodge(.9))  +
+  geom_boxplot(aes(fill=label), outlier.shape=NA, alpha=1, colour="black")+
+  scale_fill_manual(values=c("#B3AE36","#2D6480"))+
+  facet_wrap(~scenarios_f) +
+  theme_minimal() +
+  scale_y_continuous(limits=c(0, 30))+
+  scale_x_discrete()+
+  #geom_text(data=fig_effects_labels, aes(x=x,y=y, label=label), fontface="bold")+
+  theme(axis.text.x = element_markdown(angle = 45, hjust=1, face="bold"),
+        plot.margin = margin(10, 10, 10, 20),
+        panel.spacing.y=unit(1, "lines")) +
+  guides(fill = guide_legend(override.aes = list(alpha=1)),
+                 colour = guide_legend(override.aes = list(alpha=1))) +  
+  labs(x="", 
+       y="Actual effect size",
+       fill="Treatments",
+       colour="True ECx") +
+   geom_hline(yintercept = 1, col = "#F08986") +
+   geom_hline(yintercept = 5, col =  "#F02451") +
+   geom_hline(yintercept = 10, col = "#91003f") +
+  scale_color_manual(values = c("EC1", "EC5", "EC10"))
+
+ggsave("figure all_effects_sigmoidal.png", height=160, width=240, units="mm", bg = "white")
+ 
+
+```
+
+
+##Figure cs1 (copper)
 
 Case study demonstrating model averaging
 
@@ -374,7 +532,7 @@ endpoints<- all_endpoint_dat %>%
   mutate(type = if_else(Model=="Averaged", "Averaged", 
                         if_else(startsWith(as.character(Model), "NEC"),"NEC","Sigmoidal")))
   
-  fig_4_labels<- data.frame(
+  fig_cs1_labels<- data.frame(
     x=0.05, 
     y=120, 
     Model=unique(fit_dat$Model), 
@@ -386,7 +544,7 @@ endpoints<- all_endpoint_dat %>%
 #fix factor relevel not passing to facet 
 
 
-(fig_4<-ggplot(data=fit_dat)+
+(fig_cs1<-ggplot(data=fit_dat)+
   geom_ribbon(data=fit_dat, aes(x=back_fun(x), y=y,ymin=lw, ymax=up, fill=type), alpha=0.3, show.legend=FALSE)+
   geom_line(data=fit_dat, aes(x=back_fun(x), y=y, colour=type, show.legend=FALSE))+
   geom_point(data=cu_dat_plus, aes(x=x, y=y, fill=type),pch=21, alpha=0.3, show.legend=FALSE)+
@@ -401,7 +559,7 @@ endpoints<- all_endpoint_dat %>%
   geom_text(data=endpoints, aes(label=label, x=x, y=y, colour=estimate), size=3, hjust=0,show.legend = FALSE)+
   geom_vline(data=endpoints, aes(xintercept=(value), colour=estimate),  lwd=1)+
     
-  geom_text(data=fig_4_labels, aes(x=x,y=y, label=label), fontface="bold")+
+  geom_text(data=fig_cs1_labels, aes(x=x,y=y, label=label), fontface="bold")+
 
   scale_colour_manual(values=c("#815BE3","#41b6c4","black"), name="Estimate")+
   scale_fill_manual(values=c("#815BE3","#41b6c4","black"), name="Estimate")+
@@ -416,18 +574,18 @@ endpoints<- all_endpoint_dat %>%
 
 
 
-ggsave("figure 4.png", height=180,width=200, units="mm", bg = "white")
+ggsave("figure 5.png", height=180,width=200, units="mm", bg = "white")
 
 ```
 
 
 
-##Figure 5
+##Figure cs2 (condensate)
 
 Case study using data from a study that investigated the the effects of 40% weathered Ichthys condensate WAF on four tropical marine species. 
 
 
-```{r figure 5, fig.height=7, fig.width=7, fig.cap="\\label{fig:plot_CRs}Concentration response relationships.", warning=FALSE}
+```{r figure cs2, fig.height=7, fig.width=7, fig.cap="\\label{fig:plot_CRs}Concentration response relationships.", warning=FALSE}
 load("Case_study_condensate_for_plotting.RData")
 
 #convert transformed concentrations back to concentrations
@@ -463,21 +621,21 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
 
 #plot facet labels
   
-  fig_5_labels<- data.frame(
+  fig_cs2_labels<- data.frame(
     x=0.05, 
     y=1.1, 
     sp= unique(cs_dat$sp), 
     label=c("(A)", "(B)", "(C)", "(D)")) 
 
 
-(fig.5<-ggplot()+
+(fig.cs2<-ggplot()+
   geom_ribbon(data=cs_predat_2, aes(x=x_num, y=y,ymin=lw, ymax=up, fill=fit), alpha=0.3)+
   geom_line(data=cs_predat_2, aes(x=x_num, y=y,colour=fit), lwd=1)+
   geom_point(data=cs_dat_2, aes(x=x_num, y=y),alpha=0.3)+
   geom_text(data=label_1, aes(x=x, y=y, label=label),size=3)+
   geom_text(data=label_2, aes(x=x, y=y, label=label),size=3)+
   geom_text(data=label_3, aes(x=x, y=y, label=label),size=3)+
-  geom_text(data=fig_5_labels, aes(x=x, y=y, label=label), fontface="bold")+
+  geom_text(data=fig_cs2_labels, aes(x=x, y=y, label=label), fontface="bold")+
 
   scale_colour_manual(values=c("#704FC4", "#16ABA5"), name="Model average \n group")+
   scale_fill_manual(values=c("#704FC4", "#16ABA5"), name="Model average \n group")+
@@ -494,15 +652,195 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
        fill="Model group",colour="Model group"))
 
 
-ggsave("figure 5.png", height=180, width=200,units="mm", bg = "white")
+ggsave("figure cs2.png", height=180, width=200,units="mm", bg = "white")
 
 ```
 
 
+# Bonus plots 
 
 
 
-## Bonus plots 
+```{r alleffects,  warning=FALSE}
+
+fig.dat_all<- dat %>%
+  select(n, n.treatments, total.reps, scenarios, trials, label,
+         nsec_ecx_vals, ec1_ecx_vals, ec5_ecx_vals, ec10_ecx_vals, nec_ecx_vals)  %>%
+  #filter(total.reps=="2400" | total.reps=="400") %>%  
+  pivot_longer(cols=contains("ecx_vals"), names_to = "endpoint", values_to = "y") |> 
+  mutate(endpoint=toupper(gsub("_ecx_vals","", endpoint))) %>%
+  select(y, endpoint, n.treatments, total.reps, scenarios, label)  %>% 
+  mutate(scenarios_f = as_factor(scenarios), 
+         scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"),
+         endpoint = fct_relevel(endpoint, "EC1", "EC5", "EC10", "NSEC"))
+
+fig.dat_all %>% 
+ggplot(aes(x=endpoint, y, fill=label)) +
+  #stat_summary(fun.data = quantiles_95, geom="boxplot", 
+  #             aes(group=interaction(label, n.treatments)),
+  #             position=position_dodge(.9))  +
+  geom_boxplot(aes(fill=label), outlier.shape=NA, alpha=1, colour="black")+
+  #scale_fill_manual(values=c("#B3AE36","#2D6480"))+
+  facet_grid(scenarios_f ~ n.treatments) +
+  theme_minimal() +
+  scale_y_continuous(limits=c(0, 30))+
+  scale_x_discrete()+
+  #geom_text(data=fig_effects_labels, aes(x=x,y=y, label=label), fontface="bold")+
+  theme(axis.text.x = element_markdown(angle = 45, hjust=1, face="bold"),
+        plot.margin = margin(10, 10, 10, 20),
+        panel.spacing.y=unit(1, "lines")) +
+  guides(fill = guide_legend(override.aes = list(alpha=1)),
+                 colour = guide_legend(override.aes = list(alpha=1))) +  
+  labs(x="", 
+       y="Actual effect size",
+       fill="Design",
+       colour="True ECx") +
+   geom_hline(yintercept = 1, col = "#F08986") +
+   geom_hline(yintercept = 5, col =  "#F02451") +
+   geom_hline(yintercept = 10, col = "#91003f") +
+  scale_color_manual(values = c("EC1", "EC5", "EC10"))
+
+ggsave("figure all_effects_.png", height=160, width=240, units="mm", bg = "white")
+ 
+
+```
+
+
+```{r allestimates2,  warning=FALSE}
+
+dat %>%
+  mutate(NEC=est.NEC,
+         `N(S)EC`=est.NSEC,
+         EC10=est.EC10,
+         EC05=est.EC05,
+         EC01=est.EC01,
+         total.reps=factor(total.reps)) %>%
+  #filter(total.reps=="2400" | total.reps=="400") %>%
+  mutate(scenarios_f = as_factor(scenarios), 
+        scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2")) %>% 
+  select(NEC, `N(S)EC`, EC10, EC05, EC01, scenarios_f, n.treatments, label) %>%
+  #mutate(fact=paste(scenarios_f, total.reps)) %>%
+  pivot_longer(cols = c("NEC", "N(S)EC", "EC10", "EC05", "EC01"), values_to="y", names_to="endpoint") %>%
+ggplot(aes(x=label, y, fill=n.treatments)) +
+  stat_summary(fun.data = quantiles_95, geom="boxplot", 
+               aes(group=interaction(label, n.treatments)),
+               position=position_dodge(.9))  +
+  #geom_boxplot(aes(fill=n.treatments), alpha=1, colour="black") +
+  #ggh4x::facet_grid2(scenarios_f ~ endpoint, scales = "free_y") + 
+  facet_grid(scenarios_f ~ endpoint, scales = "free_y") +  
+  #facet_wrap(vars(scenarios_f, endpoint), scales = "free_y") +  
+  theme_minimal() +
+  theme(axis.text.x = element_markdown(angle = 45, hjust=1, face="bold"),
+        plot.margin = margin(10, 10, 10, 20),
+        panel.spacing.y=unit(1, "lines")) +
+  guides(fill = guide_legend(override.aes = list(alpha=1)),
+                 colour = guide_legend(override.aes = list(alpha=1))) +   
+  scale_fill_manual(values=c("#B3AE36","#2D6480"))+
+  #geom_hline(data = na.omit(true.vals.2), aes(yintercept = y, colour=endpoint)) #+
+  #scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) #+  
+  labs(col="True endpoints") + 
+  scale_x_discrete()+
+  #geom_text(data=fig_effects_labels, aes(x=x,y=y, label=label), fontface="bold")+
+  labs(x="", 
+       y="Estimate",
+       fill="Design")  
+
+ggsave("figure all_estimates.png", height=160, width=240, units="mm", bg = "white")
+ 
+
+```
+
+
+```{r alleffects2,  warning=FALSE}
+
+fig.dat_all<- dat %>%
+  select(n, n.treatments, total.reps, scenarios, trials, label,
+         nsec_ecx_vals, ec1_ecx_vals, ec5_ecx_vals, ec10_ecx_vals, nec_ecx_vals)  %>%
+  #filter(total.reps=="2400" | total.reps=="400") %>%  
+  pivot_longer(cols=contains("ecx_vals"), names_to = "endpoint", values_to = "y") |> 
+  mutate(endpoint=toupper(gsub("_ecx_vals","", endpoint))) %>%
+  select(y, endpoint, n.treatments, total.reps, scenarios, label)  %>% 
+  mutate(scenarios_f = as_factor(scenarios), 
+         scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"),
+         endpoint = fct_relevel(endpoint, "EC1", "EC5", "EC10", "NSEC"))
+
+fig.dat_all %>% 
+ggplot(aes(x=label, y, fill=n.treatments)) +
+  #stat_summary(fun.data = quantiles_95, geom="boxplot", 
+  #             aes(group=interaction(label, n.treatments)),
+  #             position=position_dodge(.9))  +
+  geom_boxplot(aes(fill=n.treatments), outlier.shape=NA, alpha=1, colour="black")+
+  #scale_fill_manual(values=c("#B3AE36","#2D6480"))+
+  #facet_grid(scenarios_f ~ endpoint) +
+  ggh4x::facet_grid2(scenarios_f ~ endpoint, scales = "free_y") +  
+  theme_minimal() +
+  scale_y_continuous(limits=c(0, 30))+
+  scale_x_discrete()+
+  #geom_text(data=fig_effects_labels, aes(x=x,y=y, label=label), fontface="bold")+
+  theme(axis.text.x = element_markdown(angle = 45, hjust=1, face="bold"),
+        plot.margin = margin(10, 10, 10, 20),
+        panel.spacing.y=unit(1, "lines")) +
+  guides(fill = guide_legend(override.aes = list(alpha=1)),
+                 colour = guide_legend(override.aes = list(alpha=1))) +  
+  labs(x="", 
+       y="Actual effect size",
+       fill="Design",
+       colour="True ECx") +
+   geom_hline(yintercept = 1, col = "#F08986") +
+   geom_hline(yintercept = 5, col =  "#F02451") +
+   geom_hline(yintercept = 10, col = "#91003f") +
+  scale_color_manual(values = c("EC1", "EC5", "EC10"))
+
+ggsave("figure all_effects_.png", height=160, width=240, units="mm", bg = "white")
+ 
+
+```
+
+##Figure NSEC effects
+
+```{r effects,  warning=FALSE}
+
+
+fig.dat<- dat %>%
+  mutate(y=nsec_ecx_vals,
+         label=paste(n, " reps (", trials, " trials)", sep="")) %>%
+  select(y, n.treatments, total.reps, scenarios, label)  %>% 
+  mutate(scenarios_f = as_factor(scenarios), 
+        scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"))
+
+  fig_effects_labels<- data.frame(x=1, y=40, 
+    label=c("(A)", "(B)", "(C)", "(D)"),
+    scenarios_f=levels(fig.dat$scenarios_f),
+    Value=c(rep("NSEC", 4), rep("NEC", 4)))
+  
+
+fig.dat %>% 
+ggplot(aes(label, y)) +
+  geom_boxplot(aes(fill=n.treatments), outlier.shape=NA, alpha=1, colour="black")+
+  scale_fill_manual(values=c("#B3AE36","#2D6480"))+
+  facet_wrap(~scenarios_f) +
+  scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +
+  theme_minimal() +
+  scale_y_continuous(limits=c(0, 40))+
+  scale_x_discrete()+
+  geom_text(data=fig_effects_labels, aes(x=x,y=y, label=label), fontface="bold")+
+  theme(axis.text.x = element_markdown(angle = 45, hjust=1, face="bold"),
+        plot.margin = margin(10, 10, 10, 20),
+        panel.spacing.y=unit(1, "lines")) +
+  guides(fill = guide_legend(override.aes = list(alpha=1)),
+                 colour = guide_legend(override.aes = list(alpha=1))) +  
+  labs(x="", 
+       y="NSEC estimated equivalent effect size",
+       fill="Treatments",
+       colour="Estimate")
+ 
+ ggsave("figure effects.png", height=160, width=240, units="mm", bg = "white")
+ 
+ # dat |> dplyr::filter(nsec_ecx_vals>30 & scenarios == "NEC 2") |> 
+ #   dplyr::select(NEC_X50.) |> 
+ #  View()
+ 
+```
 
 
 ```{r NSEC NEC comparison figure, fig.cap="\\label{fig:plot_4}Median estimated model averaged NSEC values based on a 99% certainty value for each scenario as a function of estimated NEC from the same data. Shown as horizontal and vertical lines are the true toxicity estimates for each scenario, including EC1, EC10, EC5 and NEC. Note that there is no theoretical NEC for the sigmoidal scenarios, although an ‘NEC’ estimate was obtained using the NEC model. The diagonal black line shows the 1:1 relationship indicating where NSEC estimates are equal to estimated NEC. Points are coloured according to the total sample size (total.reps, number of replicates x number of individuals).", warning=FALSE}
@@ -561,35 +899,6 @@ theme(axis.text.x = element_text(angle = 45, hjust=1))
 
 ```
 
-
-```{r plot-violin-medians, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_violin_medians}Median estimated model averaged endpoints estimates for each scenario for a well replicated (n.treatments=12, total.reps=2400) and poorly replicated experiment (n.treatments=8, total.reps=400). Shown as horizontal lines are the true endpoints for each scenario, including EC1, EC10, EC5 and NEC. Note that there is no theoretical NEC for the Sigmoidal scenarios."}
-#Plot estimate distribution 
-
-all.sim.out %>%
-  mutate(NEC=NEC_X50.,
-         NSEC=NSEC01.ECxsigmoidal_X50.*ECxsigmoidal + NSEC01.NEC3param_X50.*NEC3param,
-         EC10=ECx10.ECxsigmoidal_X50.*ECxsigmoidal + ECx10.NEC3param_X50.*NEC3param,
-         EC05=ECx05.ECxsigmoidal_X50.*ECxsigmoidal + ECx05.NEC3param_X50.*NEC3param,
-         EC01=ECx01.ECxsigmoidal_X50.*ECxsigmoidal + ECx01.NEC3param_X50.*NEC3param,
-         total.reps=factor(total.reps)) %>%
-  filter(total.reps=="2400" | total.reps=="400") %>%
-  select(NEC, NSEC, EC10, EC05, EC01, scenarios, n.treatments, total.reps) %>%
-  mutate(fact=paste(scenarios, total.reps)) %>%
-  pivot_longer(cols = c("NEC", "NSEC", "EC10", "EC05", "EC01"), values_to="y", names_to="endpoint") %>%
-  ggplot(aes(x=endpoint, y=y, fill=total.reps)) +#, col=endpoint)) +
-  #labs(col="Estimated endpoints") + 
-  #geom_violin(position=position_dodge(1)) +
-  geom_split_violin(col="black", alpha=0.7) +
-  scale_fill_colorblind() +
-  new_scale_colour() +
-  geom_hline(data = na.omit(true.vals.2), aes(yintercept = y, colour=endpoint)) +
-  scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +  
-  labs(col="True endpoints") + 
-  ylab("Estimated value") + 
-  facet_wrap(~scenarios, scales="free", nrow = 1) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust=1))
-```
 
 ```{r plot-cbands, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_cbands}Estimated 95% confidence band range for model averaged endpoints estimates for each scenario for a well replicated (n.treatments=12, total.reps=2400) and poorly replicated experiment (n.treatments=8, total.reps=400)"}
 #Plot of confidence bands of the estimates
