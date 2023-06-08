@@ -394,7 +394,9 @@ dat %>%
          EC05=est.EC05,
          EC01=est.EC01,
          total.reps=factor(total.reps)) %>%
-  filter(total.reps=="2400" | total.reps=="400") %>%
+  filter(label=="5 reps (10 trials)" | label=="10 reps (20 trials)") %>%
+  #5 reps (10 trials)  10 reps (10 trials) 5 reps (20 trials)  10 reps (20 trials)
+  #filter(total.reps=="2400" | total.reps=="400") %>%  
   mutate(scenarios_f = as_factor(scenarios), 
         scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2")) %>% 
   select(NEC, `N(S)EC`, EC10, EC05, EC01, scenarios_f, n.treatments, label) %>%
@@ -408,7 +410,7 @@ dat %>%
   scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +  
   labs(col="True endpoints") + 
   ylab("Estimated value") + 
-  facet_wrap(~scenarios_f) +
+  facet_grid(scenarios_f ~ n.treatments, scales = "free_y") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust=0.5))
 
@@ -422,7 +424,8 @@ dat %>%
 fig.dat_all<- dat %>%
   select(n, n.treatments, total.reps, scenarios, trials, label,
          nsec_ecx_vals, ec1_ecx_vals, ec5_ecx_vals, ec10_ecx_vals, nec_ecx_vals)  %>%
-  filter(total.reps=="2400" | total.reps=="400") %>%  
+  #filter(total.reps=="2400" | total.reps=="400") %>%  
+    filter(label=="5 reps (10 trials)" | label=="10 reps (20 trials)") %>%
   pivot_longer(cols=contains("ecx_vals"), names_to = "endpoint", values_to = "y") |> 
   mutate(endpoint=toupper(gsub("_ecx_vals","", endpoint))) %>%
   select(y, endpoint, n.treatments, total.reps, scenarios, label)  %>% 
@@ -437,7 +440,8 @@ ggplot(aes(x=endpoint, y, fill=label)) +
   #             position=position_dodge(.9))  +
   geom_boxplot(aes(fill=label), outlier.shape=NA, alpha=1, colour="black")+
   scale_fill_manual(values=c("#B3AE36","#2D6480"))+
-  facet_wrap(~scenarios_f) +
+  #facet_wrap(~scenarios_f) +
+  facet_grid(scenarios_f ~ n.treatments, scales = "free_y") +
   theme_minimal() +
   scale_y_continuous(limits=c(0, 30))+
   scale_x_discrete()+
