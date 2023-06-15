@@ -22,6 +22,9 @@ NEC3param <- function(x, NEC, top, beta) {
   return(y.pred)
 }
 
+NEC3param(x=6.5, NEC=6, top=0.9, beta=7.5e-01)
+
+
 # binomial example ------
 ECxsigmoidal.binom <- function(scen.dat){
   x.vec <- seq(x.range[1], x.range[2], length=as.numeric(scen.dat["n.treatments"]))
@@ -210,3 +213,31 @@ geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity", po
         position = position, show.legend = show.legend, inherit.aes = inherit.aes, 
         params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, na.rm = na.rm, ...))
 }
+
+
+estECX_vals <- function(x, params){
+  if(is.na(params["NEC"])){
+    y_out <- ECxsigmoidal(x=x, 
+                          top=unlist(params["top"]), 
+                          beta=unlist(params["beta"]), 
+                          d=unlist(params["d"]))
+  }else{
+    y_out <- NEC3param(x=x, 
+                       NEC=unlist(params["NEC"]),
+                       top=unlist(params["top"]), 
+                       beta=unlist(params["beta"])) 
+  }
+  return(y_out)
+}
+  
+
+  
+  
+  
+  
+  
+  
+  
+  
+
+
