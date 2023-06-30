@@ -841,9 +841,10 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
   scale_fill_manual(values=c("#704FC4", "#16ABA5"), name="Model average \n group")+
   new_scale_color()+
   new_scale_fill()+
-  geom_segment(data=cs_endpoints_2, aes(x=med, xend=med, y=0, yend=1, colour=endpoint),lwd=0.8)+
+  geom_segment(data=cs_endpoints_2, aes(x=med, xend=med, y=0, yend=1, colour=endpoint, linetype=endpoint),lwd=0.8)+
   scale_colour_manual(values=c("#91003f","#41b6c4","#815BE3"), name="Estimate")+
   scale_x_log10(breaks=c(1, 10, 100, 1000, 10000))+
+    scale_linetype_manual(values=c(3,2,1), name="Estimate")+
   facet_wrap(sp~., nrow=2)+
   theme_minimal()+
   theme(strip.text=element_text(face="bold.italic"),
