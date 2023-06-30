@@ -485,12 +485,12 @@ ggplot(aes(label, y)) +
  
  
 ```
-## Figure all_estimates
+## Figures all_estimates
 
 ```{r plot-violin-medians, fig.height=5, fig.width=7, fig.cap="\\label{fig:plot_violin_medians}Median estimated model averaged endpoints estimates for each scenario for a well replicated (n.treatments=12, total.reps=2400) and poorly replicated experiment (n.treatments=8, total.reps=400). Shown as horizontal lines are the true endpoints for each scenario, including EC1, EC10, EC5 and NEC. Note that there is no theoretical NEC for the Sigmoidal scenarios."}
 #Plot estimate distribution 
 
-a1 <- dat %>%
+a1dat <- dat %>%
   mutate(NEC=est.NEC,
          NSEC=est.NSEC,
          `N(S)EC`=est.N.S.EC,
@@ -498,14 +498,20 @@ a1 <- dat %>%
          EC05=est.EC05,
          EC01=est.EC01,
          total.reps=factor(total.reps)) %>%
-  filter(label=="5 reps (10 trials)" | label=="10 reps (20 trials)") %>%
+  #filter(label=="5 reps (10 trials)" | label=="10 reps (20 trials)") %>%
   mutate(scenarios_f = as_factor(scenarios), 
         scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2")) %>% 
   select(NEC, NSEC, `N(S)EC`, EC10, EC05, EC01, scenarios_f, n.treatments, label) %>%
   pivot_longer(cols = c("NEC", "NSEC", "N(S)EC", "EC10", "EC05", "EC01"), values_to="y", names_to="endpoint") %>%
   mutate(endpoint = as_factor(endpoint),
-         endpoint = fct_relevel(endpoint, c("NEC", "NSEC", "N(S)EC", "EC10", "EC05", "EC01"))) %>% 
-  ggplot(aes(x=endpoint, y=y, fill=n.treatments)) +
+         endpoint = fct_relevel(endpoint, c("NEC", "NSEC", "N(S)EC", "EC10", "EC05", "EC01")))
+
+a1out <- a1dat |> group_by(scenarios_f, n.treatments, label, endpoint) |> 
+  summarise(estimate=median(y), .groups = "keep") |> 
+  #pivot_wider(names_from = endpoint, values_from = estimate)
+  pivot_wider(names_from = scenarios_f, values_from = estimate)
+
+a1 <- a1dat |>   ggplot(aes(x=endpoint, y=y, fill=n.treatments)) +
   geom_boxplot(aes(), outlier.shape=NA, 
                alpha=1, colour="black")+
   #stat_summary(fun.data = quantiles_95, geom="boxplot", position=position_dodge2())  +
@@ -514,15 +520,15 @@ a1 <- dat %>%
   scale_colour_manual(values = c("#41b6c4", "#F08986", "#F02451", "#91003f")) +  
   labs(col="True endpoints", fill="Treatments") + 
   labs(x="", y="Estimated value") + 
-  facet_grid(scenarios_f ~ label, scales = "free_y") +
+  facet_grid(~scenarios_f, scales = "free_y") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust=0.5))
 
-a2 <- dat %>%
+a2dat <- dat %>%
   dplyr::select(n, n.treatments, total.reps, scenarios, trials, label,
          n.s.ec_ecx_vals, nsec_ecx_vals, ec1_ecx_vals, ec5_ecx_vals, ec10_ecx_vals, nec_ecx_vals)  %>%
   #dplyr::filter(total.reps=="2400" | total.reps=="400") %>%  
-  dplyr::filter(label=="5 reps (10 trials)" | label=="10 reps (20 trials)") %>%
+  #dplyr::filter(label=="5 reps (10 trials)" | label=="10 reps (20 trials)") %>%
   pivot_longer(cols=contains("ecx_vals"), names_to = "endpoint", values_to = "y") |> 
   dplyr::mutate(endpoint=toupper(gsub("_ecx_vals","", endpoint))) %>%
   dplyr::mutate(endpoint=gsub("N.S.", "N(S)", endpoint)) %>%
@@ -533,65 +539,25 @@ a2 <- dat %>%
            scenarios_f = as_factor(scenarios), 
            scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"),
            endpoint = as_factor(endpoint),
-           endpoint = fct_relevel(endpoint, c("NEC", "NSEC", "N(S)EC", "EC10", "EC05", "EC01"))) %>% 
+           endpoint = fct_relevel(endpoint, c("NEC", "NSEC", "N(S)EC", "EC10", "EC05", "EC01")))
+
+a2out <- a2dat |> group_by(scenarios_f, n.treatments, label, endpoint) |> 
+  summarise(effect=median(y), .groups = "keep") |> 
+  pivot_wider(names_from = scenarios_f, values_from = effect)
+  #pivot_wider(names_from = endpoint, values_from = effect)
+
+a2 <- a2dat |> 
 ggplot(aes(x=endpoint, y, fill=n.treatments)) +
   geom_boxplot(aes(), outlier.shape=NA, alpha=1, colour="black")+
   scale_fill_manual(values=c("#B3AE36","#2D6480"))+
   scale_y_continuous(limits=c(0, 30))+
   scale_x_discrete()+
-  labs(x="", y="Actual effect size", fill="Treatments", colour="True ECx") +
+  labs(x="", y="Actual effect size (%)", fill="Treatments", colour="True ECx") +
   geom_hline(data = true_ec_dat, aes(yintercept = y, colour=endpoint)) +
   scale_colour_manual(values = c("#F08986", "#F02451", "#91003f"))  +
-  facet_grid(scenarios_f ~ label, scales = "free_y") +
+  facet_grid(~scenarios_f, scales = "free_y") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust=0.5))
-
-
-plot_grid(a1, a2, labels=c("A", "B"), ncol = 1, nrow = 2, rel_heights = c(0.5, 0.5))
-
-ggsave("figure all_estimates.png", height=300, width=240, units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 3.png", sep=""), height=300, width=240, units="mm", bg = "white")
-
-```
-
-
-
-
-## Effect of total sample size
-```{r bias,  warning=FALSE}
-effects_dat <-  dat %>%
-  dplyr::select(n, n.treatments, total.reps, scenarios, trials, label,
-         n.s.ec_ecx_vals, nsec_ecx_vals, ec1_ecx_vals, ec5_ecx_vals, ec10_ecx_vals, nec_ecx_vals)  %>%
-  pivot_longer(cols=contains("ecx_vals"), names_to = "endpoint", values_to = "estimate") |> 
-  dplyr::mutate(endpoint=toupper(gsub("_ecx_vals","", endpoint))) %>%
-  dplyr::mutate(endpoint=gsub("N.S.", "N(S)", endpoint)) %>%
-  dplyr::mutate(endpoint=ifelse(endpoint == "EC1", "EC01", endpoint)) %>%
-  dplyr::mutate(endpoint=ifelse(endpoint == "EC5", "EC05", endpoint)) %>%
-  dplyr::select(estimate, endpoint, n.treatments, total.reps, scenarios, label)  %>% 
-  dplyr::mutate(
-           scenarios_f = as_factor(scenarios), 
-           scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"),
-           endpoint = as_factor(endpoint),
-           endpoint = fct_relevel(endpoint, c("NEC", "NSEC", "N(S)EC", "EC01", "EC05", "EC10"))) |> 
-  left_join(true_all_dat) |> 
-  mutate(diff=estimate-y)
-
-e1 <- effects_dat |> 
-    select(total.reps, label, n.treatments, scenarios_f, endpoint, diff) |> 
-  group_by(total.reps, n.treatments, scenarios_f, endpoint) |> 
-  summarise(diff=median(diff), .groups = "keep") |> 
-  dplyr::mutate(Treatments = factor(n.treatments)) |> 
-  #View()
- ggplot(aes(total.reps, diff, colour = n.treatments)) +
-  geom_line() + 
-  geom_point() +
-  scale_colour_manual(values=c("#B3AE36","#2D6480"))+
-  labs(x="Total number of trials", colour="Treatments", 
-       y ="Median difference from expected") +
-  facet_grid(scenarios_f~endpoint, scales = "free_y") +
-  geom_hline(yintercept = 0, col="blue", lty=2) +
-  theme_minimal() +
-  theme(axis.text.x = element_markdown(angle = 45, hjust=1))
 
 precision_dat <- dat %>%
   mutate(NEC=est.NEC,
@@ -609,7 +575,7 @@ precision_dat <- dat %>%
     endpoint = as_factor(endpoint),
     endpoint = fct_relevel(endpoint, c("NEC", "NSEC", "N(S)EC", "EC01", "EC05", "EC10")))
        
-e2 <- precision_dat |> 
+e1 <- precision_dat |> 
   group_by(total.reps, n.treatments, scenarios_f, endpoint) |> 
   dplyr::summarise(cv=(quantile(y, 0.75) - quantile(y, 0.25))/(quantile(y, 0.75)+quantile(y, 0.25)), 
                    .groups = "keep") |> 
@@ -626,11 +592,60 @@ e2 <- precision_dat |>
   theme_minimal() +
   theme(axis.text.x = element_markdown(angle = 45, hjust=1))
 
-plot_grid(e1, e2, labels=c("A", "B"), ncol = 1, nrow = 2, rel_heights = c(0.5, 0.5))
+effects_dat <-  dat %>%
+  dplyr::select(n, n.treatments, total.reps, scenarios, trials, label,
+         n.s.ec_ecx_vals, nsec_ecx_vals, ec1_ecx_vals, ec5_ecx_vals, ec10_ecx_vals, nec_ecx_vals)  %>%
+  pivot_longer(cols=contains("ecx_vals"), names_to = "endpoint", values_to = "estimate") |> 
+  dplyr::mutate(endpoint=toupper(gsub("_ecx_vals","", endpoint))) %>%
+  dplyr::mutate(endpoint=gsub("N.S.", "N(S)", endpoint)) %>%
+  dplyr::mutate(endpoint=ifelse(endpoint == "EC1", "EC01", endpoint)) %>%
+  dplyr::mutate(endpoint=ifelse(endpoint == "EC5", "EC05", endpoint)) %>%
+  dplyr::select(estimate, endpoint, n.treatments, total.reps, scenarios, label)  %>% 
+  dplyr::mutate(
+           scenarios_f = as_factor(scenarios), 
+           scenarios_f = fct_relevel(scenarios_f, "NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2"),
+           endpoint = as_factor(endpoint),
+           endpoint = fct_relevel(endpoint, c("NEC", "NSEC", "N(S)EC", "EC01", "EC05", "EC10"))) |> 
+  left_join(true_all_dat) |> 
+  mutate(diff=estimate-y)
 
-ggsave("figure all_effects.png", height=240, width=240, units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 4.png", sep=""), height=240, width=240, units="mm", bg = "white")
+e2 <- effects_dat |> 
+    select(total.reps, label, n.treatments, scenarios_f, endpoint, diff) |> 
+  group_by(total.reps, n.treatments, scenarios_f, endpoint) |> 
+  summarise(diff=median(diff), .groups = "keep") |> 
+  dplyr::mutate(Treatments = factor(n.treatments)) |> 
+  #View()
+ ggplot(aes(total.reps, diff, colour = n.treatments)) +
+  geom_line() + 
+  geom_point() +
+  scale_colour_manual(values=c("#B3AE36","#2D6480"))+
+  labs(x="Total number of trials", colour="Treatments", 
+       y ="Median difference from expected") +
+  facet_grid(scenarios_f~endpoint, scales = "free_y") +
+  geom_hline(yintercept = 0, col="blue", lty=2) +
+  theme_minimal() +
+  theme(axis.text.x = element_markdown(angle = 45, hjust=1))
 
+
+plot_grid(a1, e1, labels=c("A", "B"), ncol = 1, nrow = 2, rel_heights = c(0.5, 0.5))
+
+ggsave("figure all_estimates.png", height=200, width=240, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 3.png", sep=""), height=200, width=240, units="mm", bg = "white")
+
+plot_grid(a2, e2, labels=c("A", "B"), ncol = 1, nrow = 2, rel_heights = c(0.5, 0.5))
+
+ggsave("figure all_effects.png", height=200, width=240, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 4.png", sep=""), height=200, width=240, units="mm", bg = "white")
+
+vars <- c("NEC", "NSEC", "N(S)EC", "EC10", "EC05", "EC01")
+vars <-c("NEC 1", "NEC 2", "Sigmoidal 1", "Sigmoidal 2")
+
+cbind(a1out[, c("endpoint", "n.treatments", "label")], 
+            signif(a1out[, vars], 3), 
+            signif(a2out[, vars], 3)) |> 
+  data.frame() |> 
+  write.csv("sime_estimates.csv")
+  
 
 ```
 
