@@ -23,13 +23,14 @@ library(scales)
 library(cowplot)
 library(gridGraphics)
 
-fig_dir <- "C:/Users/rfisher/Australian Institute of Marine Science/Program 2.3 - TERA - General/Projects/3158 Statistical Ecotoxicology/Estimating no effect/MS/revision1/"
+fig_dir <- "C:/Users/dkoppel/Australian Institute of Marine Science/Program 2.3 - TERA - General/Projects/3158 Statistical Ecotoxicology/Estimating no effect/MS/revision1/"
 
 source('functions.R')
 
 load(file="binomial_sim_results.RData")
 load(file = "fitted_binom_examples.RData")
 
+load("cu_pred_vals.RData") #case study 1
 load("caste_study_results.RData")
 
 
@@ -648,30 +649,27 @@ cbind(a1out[, c("endpoint", "n.treatments", "label")],
   
 
 ```
-
 ##Figure cs1 (copper)
 
 Case study demonstrating model averaging
 
 ```{r}
- load("cu_pred_vals.RData")
-
 str(all_endpoint_dat)
 str(all_fit_dat)
 
-
 #back transform function 
-back_fun<- function(x)(exp(x)-1)
-#model weights 
-cs_cu_weights <- read_csv("cs_cu_weights.csv")
+back_fun<- function(x)(x^2)
 
-cu_wi_ord<- cs_cu_weights %>% arrange(desc(wi)) %>% rename("Model"=1) %>%  
-  select(Model) %>%  unique() %>% pull() 
+#model weights 
+cs_cu_weights <- read_csv("cs_cu_weights.csv") %>% dplyr::select(Model, DIC, wi)
+
+cu_wi_ord<- cs_cu_weights %>% arrange(desc(wi)) %>%  
+  dplyr::select(Model) %>%  unique() %>% pull() 
 
 cu_wi<- c("Averaged", cu_wi_ord)
 
-cu_wi_top<- cs_cu_weights %>% arrange(desc(wi)) %>% slice(1:3) %>% rename("Model"=1)
-cu_lab1<- cs_cu_weights %>% arrange(desc(wi)) %>% rename("Model"=1)%>% #arrange by weights / rename fist column to model
+cu_wi_top<- cs_cu_weights %>% arrange(desc(wi)) %>% slice(1:3) 
+cu_lab1<- cs_cu_weights %>% arrange(desc(wi)) %>% #arrange by weights 
     mutate(Model= factor(Model, levels = cu_wi_ord)) %>% #reorder the levels based on weights
   filter(wi>0)#filter only the models with weight
 
@@ -679,16 +677,13 @@ cu_lab1<- cs_cu_weights %>% arrange(desc(wi)) %>% rename("Model"=1)%>% #arrange 
 
 cu_dat <- read.csv("ignore/C. armigera combined.csv") %>% 
   dplyr::filter(Metal == "Cu") %>% 
-  dplyr::mutate(log.x = log(Conc + 1), 
-                x=if_else(Conc<0.1, 0.1, Conc)) %>% 
-    rename(y=Pcon)
+  rename(x=Conc) %>% 
+#  dplyr::mutate(log.x = log(Conc + 1), 
+#                x=if_else(Conc<0.1, 0.1, Conc)) %>% 
+    mutate(y=Pcon/100)#convert to proportion from percent
 
-cu_dat_2<- rbind(
-  cu_dat %>% mutate(type="All"), 
-  cu_dat %>% mutate(type="Single")
-)
 
-cu_mods<- data.frame(Model=c(levels(cu_lab1$Model), "Averaged"))
+cu_mods<- data.frame(Model=c((cu_wi_top$Model), "Averaged"))
 cu_dat_plus<- crossing(cu_dat, cu_mods) %>% 
   mutate(type = if_else(Model=="Averaged", "Averaged", 
                         if_else(startsWith(Model, "NEC"),"NEC","Sigmoidal"))) %>% 
@@ -702,66 +697,84 @@ endpoints<- all_endpoint_dat %>%
          Model = fct_recode(as.factor(Model),Averaged="averaged")) %>%  #capitalise averaged 
   mutate(across(where(is.double),~back_fun(.x))) %>% #back transformation
 
-    filter(Model %in% c(cu_lab1$Model) | Model == "Averaged") %>% #only select models with weight or the averaged model
-  mutate(x=0.05, y=if_else(estimate=="NSEC"|estimate=="N(S)EC", 15, #add values for geom_text position on plots
-                   if_else(estimate=="NEC", 5,25)),
-          label=str_c(estimate," ", round(value,0), " (",round(lw,0),"-", round(up,0),")" ,sep=""))
+    filter(Model %in% c(cu_wi_top$Model) | Model == "Averaged") %>% #only select models with weight or the averaged model
+  mutate(x=15, y=0.25, 
+         label=str_c(estimate,": ", round(value,0), " (",round(lw,0),"-", round(up,0),")" ,sep=""))
 
 
+#labels for ECx values 
+Cu_EC_labs<- Cu_EC_estimates %>% 
+   mutate(estimate = if_else(Model=="Averaged", "Averaged", 
+                        if_else(startsWith(Model, "NEC"),"NEC","Sigmoidal"))) %>% 
+
+    filter(Model %in% c(cu_wi_top$Model) | Model == "Averaged") %>% 
+    droplevels() %>% 
+    mutate(label=str_c(ECx,": ", round(value,0), " (",round(lw,0),"-", round(up,0),")" ,sep=""),
+           x=15,y=if_else(ECx== "EC1", 0.15,0.05))
+
+Cu_EC10<- Cu_EC_labs %>% filter(ECx=="EC10")
+Cu_EC1<- Cu_EC_labs %>% filter(ECx=="EC1")
 
 #lines and ribbons 
 
   fit_dat<- all_fit_dat %>% 
-     mutate(Model = fct_recode(as.factor(Model),Averaged="averaged")) %>% 
+         mutate(Model = fct_recode(as.factor(Model),Averaged="averaged")) %>% 
+      mutate(x=back_fun(x)) %>% #back transformation
   left_join(cs_cu_weights %>%rename("Model"=1) ) %>% 
   mutate(Model= factor(Model, levels = cu_wi))%>% 
-  filter(wi>0 | Model=="Averaged") %>% 
+  filter(Model%in% cu_wi_top$Model | Model=="Averaged") %>% 
   mutate(type = if_else(Model=="Averaged", "Averaged", 
                         if_else(startsWith(as.character(Model), "NEC"),"NEC","Sigmoidal")))
+
+  
   
   fig_cs1_labels<- data.frame(
-    x=0.05, 
-    y=120, 
-    Model=unique(fit_dat$Model), 
-    label=c("(A)", "(B)", "(C)", "(D)")) %>% 
-    filter(Model%in%fit_dat$Model)
-  
+    x=0, 
+    y=1.20, 
+    Model=c("Averaged", (cu_wi_top$Model)),     
+    label=c("(A)", "(B)", "(C)", "(D)")) 
+
   #to do: 
 #separate averaged - recombine in single graph
 #fix factor relevel not passing to facet 
 
 
 (fig_cs1<-ggplot(data=fit_dat)+
-  geom_ribbon(data=fit_dat, aes(x=back_fun(x), y=y,ymin=lw, ymax=up, fill=type), alpha=0.3, show.legend=FALSE)+
-  geom_line(data=fit_dat, aes(x=back_fun(x), y=y, colour=type, show.legend=FALSE))+
-  geom_point(data=cu_dat_plus, aes(x=x, y=y, fill=type),pch=21, alpha=0.3, show.legend=FALSE)+
- 
-  scale_fill_manual(values=c("#704FC4","#16ABA5","black"), name="Model")+
-  scale_colour_manual(values=c("#704FC4","#16ABA5","black"), name="Model")+
+  geom_ribbon(data=fit_dat, aes(x=x, y=y,ymin=lw, ymax=up, fill=type),linetype=2, alpha=0.2, show.legend=FALSE)+
+  geom_line(data=fit_dat, aes(x=x, y=y, colour=type), lwd=0.5)+
+  geom_point(data=cu_dat_plus, aes(x=x, y=y, fill=type), pch=21, alpha=0.1)+
+  geom_text(data=Cu_EC1, aes(label=label, x=x, y=y, colour=estimate), size=3, hjust=0,show.legend = FALSE)+
+  geom_text(data=Cu_EC10, aes(label=label, x=x, y=y, colour=estimate), size=3, hjust=0,show.legend = FALSE)+
+
+  scale_fill_manual(values=c("#704FC4","black"), name="Model")+
+  scale_colour_manual(values=c("#704FC4","black"), name="Model")+
   
   new_scale_color()+
   new_scale_fill()+
- 
   geom_rect(data=endpoints, aes(xmax=(up), xmin=(lw), ymin=-Inf, ymax=Inf, x=x, y=y, fill=estimate), alpha=0.2)+
   geom_text(data=endpoints, aes(label=label, x=x, y=y, colour=estimate), size=3, hjust=0,show.legend = FALSE)+
-  geom_vline(data=endpoints, aes(xintercept=(value), colour=estimate),  lwd=1)+
+  geom_vline(data=endpoints, aes(xintercept=(value), colour=estimate),  lwd=0.8)+
     
   geom_text(data=fig_cs1_labels, aes(x=x,y=y, label=label), fontface="bold")+
 
-  scale_colour_manual(values=c("#815BE3","#41b6c4","black"), name="Estimate")+
-  scale_fill_manual(values=c("#815BE3","#41b6c4","black"), name="Estimate")+
+  scale_colour_manual(values=c("#815BE3","black"), name="Estimate")+
+  scale_fill_manual(values=c("#815BE3","black"), name="Estimate")+
 
 
-  scale_x_log10(labels = scales::label_number(accuracy=1), breaks=c(0.1,1,10,100))+
-  scale_y_continuous(limits=c(0,140), breaks=c(0,20,40,60,80,100))+
+  scale_x_continuous(trans="sqrt", labels = scales::label_number(accuracy=1), breaks=c(0.1,1,10,20, 50, 100))+
+  scale_y_continuous(limits=c(0,1.4), breaks=c(0,0.20,0.40,0.60,0.80,1.00))+
 
   facet_wrap(~Model, ncol=2)+
   theme_minimal()+
-  labs(x=expression("Copper concentration"~ (mu*g~{L^-1}~Cu)), y="Normalised response"))
+  theme(axis.ticks = element_line(),
+        panel.grid.minor = element_blank())+
+  labs(x=expression("Concentration"~ (mu*g~{L^-1}~Cu)), y="Normalised response"))
 
 
 
 ggsave("figure 5.png", height=180,width=200, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 5.png", sep=""), height=180,width=200, units="mm", bg = "white")
+
 
 ```
 
@@ -790,21 +803,21 @@ cs_dat_2<- cs_dat %>%
 cs_predat_2<- cs_predat %>% 
   mutate(x_num=xform1(x)) %>% 
   mutate(x_num=if_else(x_num<0.1, 0.1, x_num)) %>% 
-  mutate(fit=fct_recode(fit, "Averaged" = "all"))
+  mutate(fit=fct_recode(fit, "All" = "all"))
 
 
 #text annotations
 
 label_1 <- data.frame(label = c("NEC3param 0.95", "ECxWeibull2 0.41","ECxWeibull1 0.75","ECxWeibull2 0.59"),
                       sp = unique(cs_dat$sp), 
-                       x=1, y=0.25)
+                       x=0.2, y=0.25)
 
 label_2<- data.frame(label = c("ECxWeibull2 0.05", "NEC4param 0.38", "NEC3param 0.25", "ECxWeibull1 0.41"),
                       sp = unique(cs_dat$sp), 
-                       x=1, y=0.15)
+                       x=0.2, y=0.15)
 label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
                       sp = unique(cs_dat$sp), 
-                       x=1, y=0.05)
+                       x=0.2, y=0.05)
 
 #plot facet labels
   
@@ -816,30 +829,33 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
 
 
 (fig.cs2<-ggplot()+
-  geom_ribbon(data=cs_predat_2, aes(x=x_num, y=y,ymin=lw, ymax=up, fill=fit), alpha=0.3)+
-  geom_line(data=cs_predat_2, aes(x=x_num, y=y,colour=fit), lwd=1)+
-  geom_point(data=cs_dat_2, aes(x=x_num, y=y),alpha=0.3)+
-  geom_text(data=label_1, aes(x=x, y=y, label=label),size=3)+
-  geom_text(data=label_2, aes(x=x, y=y, label=label),size=3)+
-  geom_text(data=label_3, aes(x=x, y=y, label=label),size=3)+
+  geom_ribbon(data=cs_predat_2, aes(x=x_num, y=y,ymin=lw, ymax=up, fill=fit),linetype=2, alpha=0.2)+
+  geom_line(data=cs_predat_2, aes(x=x_num, y=y,colour=fit), lwd=0.5)+
+  geom_point(data=cs_dat_2, aes(x=x_num, y=y),alpha=0.1)+
+  geom_text(data=label_1, aes(x=x, y=y, label=label),size=3, hjust=0)+
+  geom_text(data=label_2, aes(x=x, y=y, label=label),size=3, hjust=0)+
+  geom_text(data=label_3, aes(x=x, y=y, label=label),size=3, hjust=0)+
   geom_text(data=fig_cs2_labels, aes(x=x, y=y, label=label), fontface="bold")+
 
   scale_colour_manual(values=c("#704FC4", "#16ABA5"), name="Model average \n group")+
   scale_fill_manual(values=c("#704FC4", "#16ABA5"), name="Model average \n group")+
   new_scale_color()+
   new_scale_fill()+
-  geom_segment(data=cs_endpoints_2, aes(x=med, xend=med, y=0, yend=1, colour=endpoint),lwd=1)+
+  geom_segment(data=cs_endpoints_2, aes(x=med, xend=med, y=0, yend=1, colour=endpoint),lwd=0.8)+
   scale_colour_manual(values=c("#91003f","#41b6c4","#815BE3"), name="Estimate")+
   scale_x_log10(breaks=c(1, 10, 100, 1000, 10000))+
   facet_wrap(sp~., nrow=2)+
   theme_minimal()+
-  theme(strip.text=element_text(face="bold.italic"))+
+  theme(strip.text=element_text(face="bold.italic"),
+        axis.ticks = element_line(),
+        panel.grid.minor = element_blank())+
   labs(x=expression("Concentration"~ (mu*g~{L^-1}~TAH)), 
        y= "Normalised response",
        fill="Model group",colour="Model group"))
 
 
 ggsave("figure cs2.png", height=180, width=200,units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 6.png", sep=""), height=180,width=200, units="mm", bg = "white")
 
 ```
 
