@@ -686,12 +686,9 @@ cu_lab1<- cs_cu_weights %>% arrange(desc(wi)) %>% #arrange by weights
 
 #cu data
 
-cu_dat <- read.csv("ignore/C. armigera combined.csv") %>% 
-  dplyr::filter(Metal == "Cu") %>% 
-  rename(x=Conc) %>% 
-#  dplyr::mutate(log.x = log(Conc + 1), 
-#                x=if_else(Conc<0.1, 0.1, Conc)) %>% 
-    mutate(y=Pcon/100)#convert to proportion from percent
+cu_dat <- readxl::read_excel("ignore/Cryo combined with id.xlsx") %>% 
+  rename(x=conc) %>% 
+    mutate(y=pcon/100)#convert to proportion from percent
 
 
 cu_mods<- data.frame(Model=c((cu_wi_top$Model), "Averaged"))
