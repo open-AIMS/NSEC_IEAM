@@ -179,7 +179,6 @@ quantiles_95 <- function(x) {
   r
 }
 
-
 true_ec_dat <-expand.grid(
    scenarios=unique(dat$scenarios), endpoint = c("EC1", "EC5", "EC10")) |> 
   mutate(y=as.numeric(gsub("EC", "", endpoint)))  |> 
@@ -193,17 +192,6 @@ true_all_dat <-expand.grid(
   mutate(y=ifelse(is.na(y), 0, y))  |> 
   mutate(scenarios_f = as_factor(scenarios), 
           scenarios_f = fct_relevel(scenarios_f,"NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2")) 
-
-#EC1 case study 2
-ec1_coral <- extract_ECx(Coral.out4.all, ECx.val = 1)
-ec1_aa <- extract_ECx(out.aa.all, ECx.val = 1)
-ec1_aa <- extract_ECx(out.aa.all, ECx.val = 10)
-ec1_nd <- extract_ECx(out.nd.all, ECx.val = 1)
-ec1_urchin <- extract_ECx(Urchin.out2, ECx.val = 1)
-exp(ec1_coral)
-exp(ec1_aa)
-exp(ec1_nd)
-exp(ec1_urchin)
 
 ```
 
@@ -709,6 +697,19 @@ endpoints<- all_endpoint_dat %>%
   mutate(x=15, y=0.25, 
          label=str_c(estimate,": ", round(value,0), " (",round(lw,0),"-", round(up,0),")" ,sep=""))
 
+#EC estimate of NSEC - case study 1
+cu_x <- endpoints |> 
+  dplyr::filter(Model=="Averaged") |> 
+  dplyr::select(value) |> 
+  unlist() |> 
+  sqrt()
+cu_xrange <- endpoints |> 
+  dplyr::filter(Model=="Averaged") |> 
+  dplyr::select(lw, up) |> 
+  unlist() |> 
+  sqrt()
+ecx_nsec_cu <- estECX_manec(x=cu_x, X=norm_beta_2, x.range = cu_xrange)
+ecx_nsec_cu
 
 #labels for ECx values 
 Cu_EC_labs<- Cu_EC_estimates %>% 
@@ -750,7 +751,7 @@ Cu_EC1<- Cu_EC_labs %>% filter(ECx=="EC1")
 (fig_cs1<-ggplot(data=fit_dat)+
   geom_ribbon(data=fit_dat, aes(x=x, y=y,ymin=lw, ymax=up, fill=type),linetype=2, alpha=0.2, show.legend=FALSE)+
   geom_line(data=fit_dat, aes(x=x, y=y, colour=type), lwd=0.5)+
-  geom_point(data=cu_dat_plus, aes(x=x, y=y, fill=type), pch=21, alpha=0.1)+
+  geom_point(data=cu_dat_plus, aes(x=x, y=y, fill=type), pch=21, alpha=0.3)+
   geom_text(data=Cu_EC1, aes(label=label, x=x, y=y, colour=estimate), size=3, hjust=0,show.legend = FALSE)+
   geom_text(data=Cu_EC10, aes(label=label, x=x, y=y, colour=estimate), size=3, hjust=0,show.legend = FALSE)+
 
@@ -780,7 +781,7 @@ Cu_EC1<- Cu_EC_labs %>% filter(ECx=="EC1")
 
 
 
-ggsave("figure 5.jpg", height=180,width=200, units="mm", bg = "white")
+ggsave("figure copper.jpg", height=180,width=200, units="mm", bg = "white")
 ggsave(paste(fig_dir,"figure 5.jpg", sep=""), height=180,width=200, units="mm", bg = "white")
 
 
@@ -802,6 +803,12 @@ cs_endpoints_2<- cs_endpoints %>%
          lw=xform1(as.numeric(`2.5%`)), 
          up=xform1(as.numeric(`97.5%`)),
          endpoint=fct_recode(endpoint, `N(S)EC`="NSEC")) 
+
+cs_endpoints_2 |> 
+  mutate(est=paste0(signif(med, 3), " (", signif(lw,3), "-", signif(up,3), ")", sep="")) |> 
+  dplyr::select(sp, endpoint, est) |> 
+  pivot_wider(names_from = endpoint, values_from = est) 
+
 
 #shuffle any 0 or near 0 values up a little to plot on a log scale
 cs_dat_2<- cs_dat %>% 
@@ -839,7 +846,7 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
 (fig.cs2<-ggplot()+
   geom_ribbon(data=cs_predat_2, aes(x=x_num, y=y,ymin=lw, ymax=up, fill=fit),linetype=2, alpha=0.2)+
   geom_line(data=cs_predat_2, aes(x=x_num, y=y,colour=fit), lwd=0.5)+
-  geom_point(data=cs_dat_2, aes(x=x_num, y=y),alpha=0.1)+
+  geom_point(data=cs_dat_2, aes(x=x_num, y=y),alpha=0.2)+
   geom_text(data=label_1, aes(x=x, y=y, label=label),size=3, hjust=0)+
   geom_text(data=label_2, aes(x=x, y=y, label=label),size=3, hjust=0)+
   geom_text(data=label_3, aes(x=x, y=y, label=label),size=3, hjust=0)+
@@ -865,6 +872,43 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
 
 ggsave("figure cs2.jpg", height=180, width=200,units="mm", bg = "white")
 ggsave(paste(fig_dir,"figure 6.jpg", sep=""), height=180,width=200, units="mm", bg = "white")
+
+
+#EC1 case study 2
+ec1_coral <- extract_ECx(Coral.out4.all, ECx.val = 1)
+ec1_aa <- extract_ECx(out.aa.all, ECx.val = 1)
+ec1_nd <- extract_ECx(out.nd.all, ECx.val = 1)
+ec1_urchin <- extract_ECx(Urchin.out2, ECx.val = 1)
+signif(xform1(ec1_coral),3)
+signif(xform1(ec1_aa),3)
+signif(xform1(ec1_nd),3)
+signif(xform1(ec1_urchin),3)
+
+#EC estimate of NSEC - case study 2
+cs_endpoints
+nsec_vals_cs <- cs_endpoints |> 
+  data.frame() |>     
+  dplyr::filter(endpoint=="NSEC") |> 
+  tibble() |> 
+  column_to_rownames("sp")  |> 
+  dplyr::select(X50., X2.5., X97.5.) 
+
+ec_nsec_coral <- estECX_manec(x=as.numeric(unlist(nsec_vals_cs["A. millepora", "X50."])), 
+                              X=Coral.out4.all, 
+                              x.range = as.numeric(unlist(nsec_vals_cs["A. millepora", c("X2.5.", "X97.5.")])))
+ec_nsec_aa <- estECX_manec(x=as.numeric(unlist(nsec_vals_cs["A. amphitrite", "X50."])), 
+                           X=out.aa.all, 
+                           x.range = as.numeric(unlist(nsec_vals_cs["A. amphitrite", c("X2.5.", "X97.5.")])))
+ec_nsec_nd <- estECX_manec(x=as.numeric(unlist(nsec_vals_cs["N. dorsatus", "X50."])), 
+                           X=out.nd.all, 
+                           x.range = as.numeric(unlist(nsec_vals_cs["N. dorsatus", c("X2.5.", "X97.5.")])))
+ec_nsec_urchin <- estECX_manec(x=as.numeric(unlist(nsec_vals_cs["S. variolaris", "X50."])), 
+                               X=Urchin.out2, 
+                               x.range = as.numeric(unlist(nsec_vals_cs["S. variolaris", c("X2.5.", "X97.5.")])))
+ec_nsec_coral
+ec_nsec_aa
+ec_nsec_nd
+ec_nsec_urchin
 
 ```
 
