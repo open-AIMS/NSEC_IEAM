@@ -230,13 +230,14 @@ estECX_vals <- function(x, params){
   return(y_out)
 }
   
-
-  
-  
-  
-  
-  
-  
+estECX_manec <- function(x,  X, precision = 100, x.range){
+  int <- predict(X=X)[1,]$fit 
+  pred_vec <- predict(X=X, x.range = x.range, precision = precision) 
+  mu <- pred_vec[which.min(abs(pred_vec$x-x)),]  |> 
+    dplyr::select(fit, lw, up)
+  return(signif((int-mu)/int*100,3))
+      
+}
   
   
 
