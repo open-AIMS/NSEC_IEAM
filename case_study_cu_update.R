@@ -142,7 +142,7 @@ estimates<- rbind(out1, out2, out3) %>%
   pivot_wider(names_from=type, values_from=estimate, id_cols=c(-rowname)) %>% 
   mutate_if(is.double, ~.^2)#convert back from sqrt transformation
 
-#comparison of estimates  
+#comparison of estimates and 
 estimates %>% 
   mutate(trial= fct_recode(trial, 
     "Not normalised gamma" = "non_gamma_fit", 
@@ -158,8 +158,7 @@ estimates %>%
 
 #note that the original paper reported EC10 of 21.6 and EC50 of 63 
 
-######progressing with the normalised beta dataset 
-
+######progressing with the normalised beta
 #removing the hormesis and NECsigmoidal models 
 norm_beta_2 <- modify_jagsMANEC(norm_beta, 
                                 drop.models = c("NECsigmoidal", "NECHormesis"))
@@ -249,7 +248,7 @@ norm_beta_nec2<- modify_jagsMANEC(norm_beta_nec,
 norm_beta_nec2$NEC
 
 
-#Dunnets test for comparison
+#Dunnets test
 
 library(multcomp)
 library(tidyverse)
