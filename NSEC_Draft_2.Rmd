@@ -23,7 +23,7 @@ library(scales)
 library(cowplot)
 library(gridGraphics)
 
-fig_dir <- "C:/Users/dkoppel/Australian Institute of Marine Science/Program 2.3 - TERA - General/Projects/3158 Statistical Ecotoxicology/Estimating no effect/MS/revision1/"
+fig_dir <- "C:/Users/rfisher/Australian Institute of Marine Science/Program 2.3 - TERA - General/Projects/3158 Statistical Ecotoxicology/Estimating no effect/MS/revision1/"
 
 source('functions.R')
 
@@ -194,6 +194,17 @@ true_all_dat <-expand.grid(
   mutate(scenarios_f = as_factor(scenarios), 
           scenarios_f = fct_relevel(scenarios_f,"NEC 1", "NEC 2", "Sigmoidal 1" , "Sigmoidal 2")) 
 
+#EC1 case study 2
+ec1_coral <- extract_ECx(Coral.out4.all, ECx.val = 1)
+ec1_aa <- extract_ECx(out.aa.all, ECx.val = 1)
+ec1_aa <- extract_ECx(out.aa.all, ECx.val = 10)
+ec1_nd <- extract_ECx(out.nd.all, ECx.val = 1)
+ec1_urchin <- extract_ECx(Urchin.out2, ECx.val = 1)
+exp(ec1_coral)
+exp(ec1_aa)
+exp(ec1_nd)
+exp(ec1_urchin)
+
 ```
 
 
@@ -261,7 +272,7 @@ x.range <- c(0.1, 10)
 x.vec8 <- seq(x.range[1], x.range[2], length=8)
 x.vec12 <- seq(x.range[1], x.range[2], length=12)
 
-png("figure curves.png", height=120, width=200, units="mm", bg = "white", res = 2000)
+png("figure curves.jpg", height=120, width=200, units="mm", bg = "white", res = 2000)
 par(bty="n")
 plot(x.vec, ECxsigmoidal(x=x.vec, top=0.9, beta=0.01, d=2), ylim = c(0,1), 
      pch=NA, ylab="Response (y)", xlab="Concentration (x)")
@@ -321,7 +332,7 @@ all_sim_examples_dat |>
   xlab("Concentration") +  theme_minimal()+
   theme(strip.text=element_text(face="bold")) 
 
-ggsave("figure simdat.png", height=180, width=200,units="mm", bg = "white")
+ggsave("figure simdat.jpg", height=180, width=200,units="mm", bg = "white")
 
 scenarios <- names(scenarios.list)
 scenarios.dat <- do.call("rbind", scenarios.list) %>%
@@ -376,8 +387,8 @@ p2 <- all_sim_examples_dat |>
         legend.position = "none") 
 
 plot_grid(p1, p2, labels=c("A", "B"), ncol=1, nrow=2, rel_heights = c(0.5, 0.5))
-ggsave("figure sims_comb.png", height=200, width=200, units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 1.png", sep=""), height=200, width=200, units="mm", bg = "white")
+ggsave("figure sims_comb.jpg", height=200, width=200, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 1.jpg", sep=""), height=200, width=200, units="mm", bg = "white")
 ```
 
 ## Figure weights
@@ -431,8 +442,8 @@ grob2 <-
   #View()
 
 plot_grid(grob1, grob2, labels=c("A", "B"), ncol = 1, nrow = 2, rel_heights = c(0.6, 0.3))
-ggsave("figure weights.png", height=200, width=200, units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 2.png", sep=""), height=200, width=200, units="mm", bg = "white")
+ggsave("figure weights.jpg", height=200, width=200, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 2.jpg", sep=""), height=200, width=200, units="mm", bg = "white")
 
 
 ```
@@ -481,7 +492,7 @@ ggplot(aes(label, y)) +
        fill="Treatments",
        colour="Estimate"))
  
- ggsave("figure nsec.png", height=160, width=240, units="mm", bg = "white")
+ ggsave("figure nsec.jpg", height=160, width=240, units="mm", bg = "white")
  
  
  
@@ -630,13 +641,13 @@ e2 <- effects_dat |>
 
 plot_grid(a1, e1, labels=c("A", "B"), ncol = 1, nrow = 2, rel_heights = c(0.5, 0.5))
 
-ggsave("figure all_estimates.png", height=200, width=240, units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 3.png", sep=""), height=200, width=240, units="mm", bg = "white")
+ggsave("figure all_estimates.jpg", height=200, width=240, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 3.jpg", sep=""), height=200, width=240, units="mm", bg = "white")
 
 plot_grid(a2, e2, labels=c("A", "B"), ncol = 1, nrow = 2, rel_heights = c(0.5, 0.5))
 
-ggsave("figure all_effects.png", height=200, width=240, units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 4.png", sep=""), height=200, width=240, units="mm", bg = "white")
+ggsave("figure all_effects.jpg", height=200, width=240, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 4.jpg", sep=""), height=200, width=240, units="mm", bg = "white")
 
 vars <- c("NEC", "NSEC", "N(S)EC", "EC10", "EC05", "EC01")
 vars <-c("NEC 1", "NEC 2", "Sigmoidal 1", "Sigmoidal 2")
@@ -772,8 +783,8 @@ Cu_EC1<- Cu_EC_labs %>% filter(ECx=="EC1")
 
 
 
-ggsave("figure 5.png", height=180,width=200, units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 5.png", sep=""), height=180,width=200, units="mm", bg = "white")
+ggsave("figure 5.jpg", height=180,width=200, units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 5.jpg", sep=""), height=180,width=200, units="mm", bg = "white")
 
 
 ```
@@ -855,8 +866,8 @@ label_3<- data.frame(label = c( "", "ECxWeibull1 0.21",  "", "" ),
        fill="Model group",colour="Model group"))
 
 
-ggsave("figure cs2.png", height=180, width=200,units="mm", bg = "white")
-ggsave(paste(fig_dir,"figure 6.png", sep=""), height=180,width=200, units="mm", bg = "white")
+ggsave("figure cs2.jpg", height=180, width=200,units="mm", bg = "white")
+ggsave(paste(fig_dir,"figure 6.jpg", sep=""), height=180,width=200, units="mm", bg = "white")
 
 ```
 
@@ -904,7 +915,7 @@ ggplot(aes(x=endpoint, y, fill=label)) +
    geom_hline(yintercept = 10, col = "#91003f") +
   scale_color_manual(values = c("EC1", "EC5", "EC10"))
 
-ggsave("figure all_effects_.png", height=160, width=240, units="mm", bg = "white")
+ggsave("figure all_effects_.jpg", height=160, width=240, units="mm", bg = "white")
  
 
 ```
@@ -949,7 +960,7 @@ ggplot(aes(x=label, y, fill=n.treatments)) +
        y="Estimate",
        fill="Design")  
 
-ggsave("figure all_estimates.png", height=160, width=240, units="mm", bg = "white")
+ggsave("figure all_estimates.jpg", height=160, width=240, units="mm", bg = "white")
  
 
 ```
@@ -995,7 +1006,7 @@ ggplot(aes(x=label, y, fill=n.treatments)) +
    geom_hline(yintercept = 10, col = "#91003f") +
   scale_color_manual(values = c("EC1", "EC5", "EC10"))
 
-ggsave("figure all_effects_.png", height=160, width=240, units="mm", bg = "white")
+ggsave("figure all_effects_.jpg", height=160, width=240, units="mm", bg = "white")
  
 
 ```
@@ -1038,7 +1049,7 @@ ggplot(aes(label, y)) +
        fill="Treatments",
        colour="Estimate")
  
- ggsave("figure effects.png", height=160, width=240, units="mm", bg = "white")
+ ggsave("figure effects.jpg", height=160, width=240, units="mm", bg = "white")
  
  # dat |> dplyr::filter(nsec_ecx_vals>30 & scenarios == "NEC 2") |> 
  #   dplyr::select(NEC_X50.) |> 
