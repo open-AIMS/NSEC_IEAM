@@ -5,34 +5,37 @@
         # likelihood
         for (i in 1:N)
         {
-        theta[i]<-bot + (top-bot) * (1-exp(-exp(beta*(x[i] - EC50)))) 
-        # response is gamma
-        y[i]~dgamma(shape, shape / (theta[i]))
+        
+        # response is beta
+        y[i] ~ dbeta(shape1[i], shape2[i])
+        shape1[i] <- theta[i] * phi
+        shape2[i]  <- (1-theta[i]) * phi
+        theta[i]<-top*exp(-beta*((x[i])-NEC)^d*step(((x[i])-NEC)))
         }
         
         # specify model priors
-        top ~  dlnorm(0,0.001) #dgamma(1,0.001) # dnorm(0,0.001) #T(0,) #
+        top ~  dunif(0.001,0.999)
         beta ~ dgamma(0.0001,0.0001)
-        EC50~dgamma(0.0001,0.0001) #dnorm(3, 0.0001) T(0,) dnorm(30, 0.0001) T(0,) #
-        shape ~ dlnorm(0,0.001) #dunif(0,1000)
-        bot ~  dlnorm(0,0.001)
+        NEC ~ dgamma(0.0001,0.0001) 
+        t0 ~ dnorm(0, 0.010)
+        phi <- exp(t0)
+        d ~ dnorm(1, 0.0001)  
 
         # pearson residuals
         for (i in 1:N) {
          ExpY[i] <- theta[i] 
-         VarY[i] <- shape/((shape/(shape / (theta[i])))^2)
-         E[i]    <- (y[i] - ExpY[i]) / sqrt(VarY[i])
+         VarY[i] <- (shape1[i]*shape2[i])/((shape1[i]+shape2[i])^2*(shape1[i]+shape2[i]+1))
+         E[i] <- (y[i] - ExpY[i]) / sqrt(VarY[i])
         }
         
         # overdispersion
         for (i in 1:N) {
-         ysim[i] ~  dgamma(shape, shape / (theta[i]))
+         ysim[i] ~ dbeta(shape1[i], shape2[i])
          Esim[i] <- (ysim[i] - ExpY[i]) / sqrt(VarY[i])
          D[i]    <- E[i]^2     #Squared residuals for original data
          Dsim[i] <- Esim[i]^2  #Squared residuals for simulated data
         }
         SS    <- sum(D[1:N])
         SSsim <- sum(Dsim[1:N])
-
         }
         

@@ -22,6 +22,9 @@ library(ggh4x)
 library(scales)
 library(cowplot)
 library(gridGraphics)
+library(multcomp)
+library(glmmTMB)
+
 
 fig_dir <- "C:/Users/rfisher/Australian Institute of Marine Science/Program 2.3 - TERA - General/Projects/3158 Statistical Ecotoxicology/Estimating no effect/MS/revision1/"
 
@@ -784,6 +787,23 @@ Cu_EC1<- Cu_EC_labs %>% filter(ECx=="EC1")
 ggsave("figure copper.jpg", height=180,width=200, units="mm", bg = "white")
 ggsave(paste(fig_dir,"figure 5.jpg", sep=""), height=180,width=200, units="mm", bg = "white")
 
+# Estimate NOEC for table 3 
+dunnett<- norm_beta_2$mod.fits$NEC3param$mod.dat %>% data.frame() %>% 
+  mutate(cat=as.factor(signif(x, 1))) |> 
+  group_by(cat) |> 
+  mutate(mean.x=as.factor(back_fun(mean(x))))
+
+
+fit.glmer<-glmmTMB(y~mean.x, family=Beta(link = "logit", link_phi = "log"), data=dunnett)
+summary(glht(fit.glmer, linfct=mcp(mean.x="Dunnett")))     
+
+# Extract NEC for table 3
+norm_beta_nec <- modify_jagsMANEC(norm_beta_2, 
+                                model.set = ("NEC"))
+norm_beta_nec2<- modify_jagsMANEC(norm_beta_nec, 
+                                 drop.models = c("NECHormesis", "NECsigmoidal"))
+
+norm_beta_nec2$NEC^2
 
 ```
 
@@ -909,6 +929,44 @@ ec_nsec_coral
 ec_nsec_aa
 ec_nsec_nd
 ec_nsec_urchin
+
+# dunnets tests
+## urchin
+dat <- Urchin.out2$mod.fits$NEC3param$mod.dat |> 
+  bind_cols() |> 
+  mutate(suc=as.integer(round(N*y)),
+         Tr=as.factor(xform1(x))) |> 
+  data.frame()
+fit.glmer<-glmmTMB(y~Tr, family=Beta(link = "logit", link_phi = "log"), data=dat) 
+summary(glht(fit.glmer, linfct=mcp(Tr="Dunnett")))     
+
+## coral
+dat <- Coral.out4.all$mod.fits$NEC3param$mod.dat |> 
+  bind_cols() |> 
+  mutate(suc=as.integer(round(N*y)),
+         Tr=as.factor(xform1(x))) |> 
+  data.frame()
+fit.glmer<-glmmTMB(y~Tr, family=Beta(link = "logit", link_phi = "log"), data=dat) 
+summary(glht(fit.glmer, linfct=mcp(Tr="Dunnett")))     
+
+## barnacle
+dat <- out.aa.all$mod.fits$NEC3param$mod.dat |> 
+  bind_cols() |> 
+  mutate(suc=as.integer(round(N*y)),
+         Tr=as.factor(xform1(x))) |> 
+  data.frame()
+fit.glmer<-glmmTMB(y~Tr, family=Beta(link = "logit", link_phi = "log"), data=dat) 
+summary(glht(fit.glmer, linfct=mcp(Tr="Dunnett")))   
+
+## snail
+dat <- out.nd.all$mod.fits$NEC3param$mod.dat |> 
+  bind_cols() |> 
+  mutate(suc=as.integer(round(N*y)),
+         Tr=as.factor(xform1(x))) |> 
+  data.frame()
+fit.glmer<-glmmTMB(y~Tr, family=Beta(link = "logit", link_phi = "log"), data=dat) 
+summary(glht(fit.glmer, linfct=mcp(Tr="Dunnett")))   
+
 
 ```
 

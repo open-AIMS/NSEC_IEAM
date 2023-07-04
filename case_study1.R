@@ -255,7 +255,7 @@ library(tidyverse)
 library(bayesnec)
 library(glmmTMB)
 library(jagsNEC)
-dat_fc<- dat %>% mutate(conc=as.factor(conc)) %>% data.frame()
+#dat_fc<- dat %>% mutate(conc=as.factor(conc)) %>% data.frame()
 
 dunnett<- norm_beta_2$mod.fits$NEC3param$mod.dat %>% data.frame() %>% 
   mutate(x=as.factor(x))
