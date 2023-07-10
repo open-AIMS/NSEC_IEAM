@@ -1,7 +1,7 @@
 library(jagsNEC)
 library(tidyverse)
 
-dat <- readxl::read_excel("ignore/Cryo combined with id.xlsx") %>% 
+dat <- readxl::read_excel("case_study1_data.xlsx") %>% 
   group_by(id) %>% 
   mutate(norm=dbl/max(dbl)) %>% 
   mutate(sqrt.x=sqrt(conc)) %>% 
