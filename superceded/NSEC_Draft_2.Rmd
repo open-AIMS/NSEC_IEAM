@@ -663,7 +663,7 @@ str(all_fit_dat)
 back_fun<- function(x)(x^2)
 
 #model weights 
-cs_cu_weights <- read_csv("cs_cu_weights.csv") %>% dplyr::select(Model, DIC, wi)
+cs_cu_weights <- read_csv("Table3.csv") %>% dplyr::select(Model, DIC, wi)
 
 cu_wi_ord<- cs_cu_weights %>% arrange(desc(wi)) %>%  
   dplyr::select(Model) %>%  unique() %>% pull() 

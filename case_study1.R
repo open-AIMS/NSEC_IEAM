@@ -178,7 +178,7 @@ norm_beta_2$mod.stats |>
   dplyr::select(DIC, wi)|> 
  rownames_to_column("Model") |> 
   data.frame()|> 
-  write.csv("cs_cu_weights.csv")
+  write.csv("Table3.csv")
 
 i=1
 modnames <- names(norm_beta_2$mod.fits)
