@@ -79,7 +79,7 @@ for(r in 1:25){
 }
 
 # join the old and new output --------------------
-# Note files can be downloaded from zip folder simulation_study_results.zip
+# Note files can be downloaded from zip folder binomial_allsims_original.zip
 load(file="data_raw/binomial_allsims_original.RData")
 length(fitted.binom.allsims)
 
