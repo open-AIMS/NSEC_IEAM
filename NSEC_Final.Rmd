@@ -24,14 +24,25 @@ library(cowplot)
 library(gridGraphics)
 library(multcomp)
 library(glmmTMB)
-
 source('functions.R')
-load(file="binomial_sim_results.RData") #simulation results
-load(file = "fitted_binom_examples.RData") #simulation results
-load("cu_pred_vals.RData") #case study 1
-load("caste_study_results.RData") #case study 2
-load("Case_study_condensate_for_plotting.RData") #case study 2
 
+options(timeout = max(3000, getOption("timeout")))
+
+# To download and extract using R.
+# temp <- tempfile()
+# download.file("https://data.aims.gov.au/data-download/49a297f2-48f5-4770-bccf-a21be78ec813/All-R-files_NSEC_IEAM.zip",temp)
+# load(unz(temp, "binomial_sim_results.RData"))
+# load(unz(temp, "fitted_binom_examples.RData")) #simulation results
+# load(unz(temp, "cu_pred_vals.RData")) #case study 1
+# load(unz(temp, "caste_study_results.RData")) #case study 2
+# load(unz(temp, "Case_study_condensate_for_plotting.RData")) #case study 2
+# unlink(temp)
+
+load(file = "binomial_sim_results.RData") #simulation results
+load(file = "fitted_binom_examples.RData") #simulation results
+load(file = "cu_pred_vals.RData") #case study 1
+load(file = "caste_study_results.RData") #case study 2
+load(file = "Case_study_condensate_for_plotting.RData") #case study 2
 
 x.range <- c(0.1, 10)
 x.vec <- seq(x.range[1], x.range[2], length=50)
@@ -48,7 +59,6 @@ true.vals.2<-true.vals %>% mutate(scenarios_f = as_factor(scenarios),
           endpoint=fct_relevel(endpoint, "NEC", "EC1", "EC5", "EC10")) %>% 
     mutate(y_2 = if_else(str_detect(scenarios, "NEC")&endpoint %in% c("EC1", "EC5", "EC10"),  NA, y))
 
- 
 dat <- all.sim.out %>%
   mutate(est.NEC=NEC_X50.,
          est.NSEC=NSEC01.ECxsigmoidal_X50.,
@@ -84,7 +94,6 @@ n.s.ec_ecx_vals <- ((0.9-sapply(1:nrow(dat),  FUN = function(i){
   x_val <- dat[i, "est.N.S.EC"]
   unlist(estECX_vals(x=x_val, params = param_vec))  
 })) / 0.9) *100
-
 
 ec1_ecx_vals <- ((0.9-sapply(1:nrow(dat),  FUN = function(i){  
   param_vec <- dat[i, c("top", "beta", "NEC", "d")]

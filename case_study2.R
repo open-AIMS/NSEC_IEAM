@@ -1,10 +1,18 @@
 require(tidyverse)
 require(jagsNEC)
 require(ggplot2)
+options(timeout = max(3000, getOption("timeout")))
+
+temp <- tempfile()
+download.file("https://data.aims.gov.au/data-download/615e208d-f6c7-4b2f-b99e-d4fc50614e48/R-Analysis-Files.zip",temp)
+load(unz(temp, "Urchin.RData"))
+load(unz(temp, "Coral.RData"))
+load(unz(temp, "NDARP.RData"))
+load(unz(temp, "AAARP.Rdata"))
+unlink(temp)
 
 
 # urchin
-load("ignore/Urchin.RData")
 Urchin.sigmoidal <- Urchin.out2$mod.fits$NECsigmoidal
 Urchin.out2.NEC <- modify_jagsMANEC(Urchin.out2, model.set = "NEC")
 Urchin.out2 <- modify_jagsMANEC(Urchin.out2, 
@@ -16,7 +24,6 @@ NEC.Urchin <- Urchin.out2.NEC$sims.list$NEC
 NSEC.Urchin <- extract_NSEC(Urchin.out2, posterior = TRUE)
 
 # coral
-load("ignore/coral_out_becky.RData")
 Coral.sigmoidal <- Coral.out4$mod.fits$NECsigmoidal
 Coral.out4.NEC <- modify_jagsMANEC(Coral.out4, model.set = "NEC") 
 Coral.out4.all <- modify_jagsMANEC(Coral.out4, 
@@ -28,7 +35,6 @@ NEC.Coral <- Coral.out4.NEC$sims.list$NEC
 NSEC.Coral <- extract_NSEC(Coral.out4.all, posterior = TRUE)
 
 # ND
-load("ignore/NDARP.RData")
 nd.sigmoidal <- out.nd.all$mod.fits$NECsigmoidal
 out.nd.nec <- modify_jagsMANEC(out.nd.all, model.set="NEC")
 out.nd.all <- modify_jagsMANEC(out.nd.all, 
@@ -40,7 +46,6 @@ NEC.nd <- out.nd.nec$sims.list$NEC
 NSEC.nd <- extract_NSEC(out.nd.all, posterior = TRUE)
 
 # AA
-load("ignore/AAARP.Rdata")
 aa.sigmoidal <- out.aa.all$mod.fits$NECsigmoidal
 out.nec.AA <- modify_jagsMANEC(out.aa.all, model.set="NEC")
 out.aa.all <- modify_jagsMANEC(out.aa.all, 
@@ -52,7 +57,7 @@ EC10.aa <- extract_ECx(out.aa.all, ECx.val = 10, posterior = TRUE)
 NEC.aa <- out.nec.AA$sims.list$NEC
 NSEC.aa <- extract_NSEC(out.aa.all, posterior = TRUE)
 
-
+# Collate all
 endpoints <- list(Urchin=list(NEC=NEC.Urchin, 
                               EC10=EC10.Urchin, 
                               NSEC=NSEC.Urchin),
